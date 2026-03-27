@@ -5,12 +5,16 @@
 # 用法：
 #   cd /path/to/your-repo
 #   bash /path/to/Agent-Workflow-Template/init.sh \
-#     [--cli <claude|codex>] [--skip-fill] [--resume]
+#     [--cli <claude|codex>] [--model <name>] [--reasoning-effort <level>] \
+#     [--skip-fill] [--resume] [--ultra]
 #
 # 选项：
 #   --cli <name>    指定 CLI 工具（默认：claude）
+#   --model <name>  指定 AI 模型（默认：gpt-5.4）
+#   --reasoning-effort <level> 指定推理强度（默认：xhigh）
 #   --skip-fill     只复制骨架，不调用 AI 填充文档
 #   --resume        从上次失败的步骤继续执行，不重跑已完成步骤
+#   --ultra         使用逐文件多次 AI 调用完成初始化填充
 # ============================================================
 set -euo pipefail
 
@@ -18,8 +22,12 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SCAFFOLD_DIR="${SCRIPT_DIR}/scaffold"
 TARGET_DIR="$(pwd)"
 CLI_TOOL="claude"
+MODEL="gpt-5.4"
+REASONING_EFFORT="xhigh"
 SKIP_FILL=false
 RESUME=false
+SINGLE_CALL=true
+ULTRA=false
 TARGET_IS_GIT_REPO=false
 
 STATE_DIR_NAME=".agent-workflow-init"
@@ -57,12 +65,16 @@ usage() {
     cat <<EOF
 用法：
   cd /path/to/your-repo
-  bash /path/to/Agent-Workflow-Template/init.sh [--cli <claude|codex>] [--skip-fill] [--resume]
+  bash /path/to/Agent-Workflow-Template/init.sh [--cli <claude|codex>] [--model <name>] [--reasoning-effort <level>] [--skip-fill] [--resume] [--ultra]
 
 选项：
   --cli <name>    指定 CLI 工具（默认：claude）
+  --model <name>  指定 AI 模型（默认：gpt-5.4）
+  --reasoning-effort <level>
+                   指定推理强度（默认：xhigh）
   --skip-fill     只复制骨架，不调用 AI 填充文档
   --resume        从上次失败的步骤继续执行，不重跑已完成步骤
+  --ultra         使用逐文件多次 AI 调用完成初始化填充
 EOF
 }
 
@@ -156,6 +168,27 @@ copy_managed_file() {
     cp "$SCAFFOLD_DIR/$relative_path" "$TARGET_DIR/$relative_path"
 }
 
+relative_to_target() {
+    local path="$1"
+    printf '%s\n' "${path#"$TARGET_DIR"/}"
+}
+
+file_differs_from_scaffold() {
+    local relative_path="$1"
+    local scaffold_path="$SCAFFOLD_DIR/$relative_path"
+    local target_path="$TARGET_DIR/$relative_path"
+
+    if [[ ! -f "$target_path" ]]; then
+        return 1
+    fi
+
+    if [[ ! -f "$scaffold_path" ]]; then
+        return 0
+    fi
+
+    ! cmp -s "$scaffold_path" "$target_path"
+}
+
 check_existing_managed_files() {
     local conflicts=()
     local relative_path=""
@@ -224,6 +257,12 @@ detect_cli_kind() {
     esac
 }
 
+script_has_unreplaced_command_placeholder() {
+    local script_path="$1"
+    local placeholder="$2"
+    grep -qE "^[[:space:]]*${placeholder}[[:space:]]*$" "$script_path"
+}
+
 run_cli_prompt() {
     local prompt="$1"
     local cli_kind=""
@@ -232,7 +271,14 @@ run_cli_prompt() {
 
     case "$cli_kind" in
         codex)
-            local codex_args=("exec" "--full-auto" "--color" "never" "-C" "$TARGET_DIR")
+            local codex_args=(
+                "exec"
+                "--full-auto"
+                "--color" "never"
+                "--model" "$MODEL"
+                "-c" "model_reasoning_effort=\"$REASONING_EFFORT\""
+                "-C" "$TARGET_DIR"
+            )
             if [[ "$TARGET_IS_GIT_REPO" != true ]]; then
                 codex_args+=("--skip-git-repo-check")
             fi
@@ -254,22 +300,42 @@ validate_edit_step() {
     local files=("$@")
     local target_file="${files[0]}"
 
-    if [[ "$changed_count" -eq 0 ]]; then
-        return 1
-    fi
-
     case "$step_id" in
+        single_call)
+            local file=""
+            local relative_path=""
+            for file in "${files[@]}"; do
+                relative_path="$(relative_to_target "$file")"
+                case "$relative_path" in
+                    docs/decisions.md)
+                        grep -q '^## D-001 初始化 Agent Workflow 文档体系$' "$file" || return 1
+                        ;;
+                    scripts/check_lint.sh)
+                        ! script_has_unreplaced_command_placeholder "$file" '<lint-command>' || return 1
+                        ;;
+                    scripts/check_tests.sh)
+                        ! script_has_unreplaced_command_placeholder "$file" '<test-command>' || return 1
+                        ;;
+                    *)
+                        file_differs_from_scaffold "$relative_path" || return 1
+                        ;;
+                esac
+            done
+            ;;
         decisions)
+            [[ "$changed_count" -gt 0 ]] &&
             grep -q '^## D-001 初始化 Agent Workflow 文档体系$' "$target_file"
             ;;
         scripts)
-            ! grep -q '<lint-command>' "$TARGET_DIR/scripts/check_lint.sh" &&
-            ! grep -q '<test-command>' "$TARGET_DIR/scripts/check_tests.sh"
+            [[ "$changed_count" -gt 0 ]] &&
+            ! script_has_unreplaced_command_placeholder "$TARGET_DIR/scripts/check_lint.sh" '<lint-command>' &&
+            ! script_has_unreplaced_command_placeholder "$TARGET_DIR/scripts/check_tests.sh" '<test-command>'
             ;;
         audit)
             [[ -s "$REPORT_FILE" ]]
             ;;
         *)
+            [[ "$changed_count" -gt 0 ]] &&
             [[ -f "$target_file" ]]
             ;;
     esac
@@ -345,7 +411,6 @@ run_edit_step() {
 run_audit_step() {
     local step_id="audit"
     local title="最终扫描并生成人工补充清单"
-    local log_file="$LOG_DIR/${step_id}.log"
 
     ensure_state_dirs
 
@@ -355,16 +420,8 @@ run_audit_step() {
     fi
 
     info "  → ${title}"
-    if ! (
-        cd "$TARGET_DIR"
-        run_cli_prompt "$(audit_prompt)"
-    ) >"$REPORT_FILE" 2>"$log_file"; then
-        error "步骤失败：${title}"
-        error "日志：$log_file"
-        mark_step_failed "$step_id" "command_failed"
-        print_resume_hint
-        exit 1
-    fi
+
+    generate_audit_report >"$REPORT_FILE"
 
     if ! validate_edit_step "$step_id" 1 "$REPORT_FILE"; then
         error "步骤未通过结果校验：${title}"
@@ -798,6 +855,223 @@ audit_prompt() {
 PROMPT
 }
 
+single_call_prompt() {
+    cat <<'PROMPT'
+你正在为一个刚初始化 Agent Workflow Template 的仓库执行一次“初始化 bootstrap”任务。
+
+这是一次特殊初始化操作，本条 prompt 的要求优先于仓库内尚未填充完成的 `docs/workflow.md`、`docs/plan/current.md` 等模板流程文件。不要因为模板中的进行中状态、空白计划或流程冲突而停止、提问或等待确认。不要输出方案后停止，直接完成文件修改。
+
+只允许修改以下文件：
+- `docs/overview.md`
+- `docs/architecture.md`
+- `docs/conventions.md`
+- `docs/quality.md`
+- `docs/security.md`
+- `docs/progress.md`
+- `docs/plan/backlog.md`
+- `docs/decisions.md`
+- `scripts/check_lint.sh`
+- `scripts/check_tests.sh`
+
+不要修改任何其他文件。
+
+## 目标
+
+请基于当前代码库事实，一次性完成以下初始化：
+
+1. 填充 `docs/overview.md`
+2. 填充 `docs/architecture.md`
+3. 填充 `docs/conventions.md`
+4. 填充 `docs/quality.md`
+5. 填充 `docs/security.md`
+6. 填充 `docs/progress.md`
+7. 填充 `docs/plan/backlog.md`
+8. 在 `docs/decisions.md` 的“## 决策记录”区域追加第一条初始化决策
+9. 更新 `scripts/check_lint.sh` 和 `scripts/check_tests.sh`
+
+## 分析要求
+
+- 先检查根目录结构、README、包管理文件、主代码目录、测试目录、CI/脚本配置、lint 配置、git 历史和分支命名
+- 只基于代码库中能确认的事实填写，不要编造信息
+- 无法可靠确认的信息保留“（待填写）”或按模板中的保守表达处理
+- `docs/progress.md` 必须基于实际代码、git 活动和 TODO/FIXME/HACK/XXX 注释填写
+- `docs/plan/backlog.md` 必须基于代码注释、`docs/progress.md` 和 `docs/overview.md` 中可确认线索填写
+
+## 各文件要求
+
+### `docs/overview.md`
+- 填写项目名称、一句话目标、目标用户、业务价值
+- 填写 In Scope / Out of Scope
+- 填写核心概念
+- 成功标准无法确认时保留“（待填写）”
+- 保持“维护规则”不变
+
+### `docs/architecture.md`
+- 填写实际分层模型、目录结构、Import Boundary 规则、执行方式
+- 只写被工具机械执行的结构性约束
+- 保持“维护规则”不变
+
+### `docs/conventions.md`
+- 填写命名规范、函数契约、错误处理模式、Git 规范
+- 只写靠 agent 自觉遵守的风格性规则
+- 保持“维护规则”不变
+
+### `docs/quality.md`
+- 只修改“测试栈”“测试目录”“测试命令”等待填写区域
+- 不要修改 Definition of Done、失败处理流程、维护规则
+
+### `docs/security.md`
+- 只从 `.env.example`、代码中的环境变量引用、认证代码、CI secrets 引用等提取信息
+- 绝不读取或输出 `.env` 实际值
+- 不要修改安全变更规则
+
+### `docs/progress.md`
+- 只记录事实状态，不写未来意图
+- 更新时间填今天日期
+
+### `docs/plan/backlog.md`
+- 每条任务用 `- [ ]`
+- 包含来源信息
+- 若无可靠线索则保留“（待填写）”
+
+### `docs/decisions.md`
+- 只在“## 决策记录”区域追加
+- 将以下内容作为要写入的 Markdown 正文：
+
+<content-to-write>
+## D-001 初始化 Agent Workflow 文档体系
+- 日期：（填入今天的日期）
+- 状态：Accepted
+- 背景：项目需要建立结构化的 agent 工作流文档体系，以支持 AI agent 自主开发。
+- 决策：采用 Agent Workflow Template 的 AGENTS.md + docs/ + scripts/ 结构。
+- 原因：文档驱动的 SAS 架构，每个文档职责单一且解耦，workflow 状态机提供清晰的 stage 跳转逻辑，scripts/ 提供确定性检查。
+- 被拒绝方案：
+  - 纯 prompt 约束：缺乏持久化和可审计的流程文档
+  - 单 README 承载全部规则：难维护，无法结构化引用
+- 影响：后续所有 agent 开发流程按此文档体系执行。
+</content-to-write>
+
+### `scripts/check_lint.sh`
+- 用实际 lint 命令替换 `<lint-command>`
+- 若没有 lint 工具，用 `echo "WARN: No lint tool configured"`
+- 其他结构保持不变
+
+### `scripts/check_tests.sh`
+- 用实际测试命令替换 `<test-command>`
+- 若没有测试框架，用 `echo "WARN: No test framework configured"`
+- 其他结构保持不变
+
+## 输出要求
+
+- 直接完成文件修改
+- 不要停下来问问题
+- 最终不要额外修改列表之外的文件
+PROMPT
+}
+
+generate_audit_report() {
+    local files=(
+        "AGENTS.md"
+        "docs/overview.md"
+        "docs/architecture.md"
+        "docs/conventions.md"
+        "docs/decisions.md"
+        "docs/quality.md"
+        "docs/security.md"
+        "docs/progress.md"
+        "docs/plan/backlog.md"
+        "docs/plan/current.md"
+        "scripts/check_lint.sh"
+        "scripts/check_tests.sh"
+    )
+    local file=""
+    local relative_path=""
+    local has_followups=false
+    local line=""
+    local -a findings=()
+
+    echo "# 初始化后人工补充清单"
+    echo ""
+    echo "## 已完成概览"
+    echo "- 自动初始化已复制模板骨架，并完成文档/脚本状态扫描。"
+    echo "- 本报告由本地规则生成，用于标出仍需人工补充或确认的项目。"
+    echo ""
+    echo "## 仍需人工补充"
+
+    for file in "${files[@]}"; do
+        relative_path="$file"
+        findings=()
+
+        if [[ ! -f "$TARGET_DIR/$relative_path" ]]; then
+            findings+=("文件缺失")
+        else
+            if [[ -f "$SCAFFOLD_DIR/$relative_path" ]] && cmp -s "$SCAFFOLD_DIR/$relative_path" "$TARGET_DIR/$relative_path"; then
+                findings+=("看起来仍是模板原样内容")
+            fi
+
+            while IFS= read -r line; do
+                findings+=("仍包含占位内容：${line}")
+            done < <(grep -nE '（待填写）|YYYY-MM-DD|Not Started / In Progress / Done|（示例：' "$TARGET_DIR/$relative_path" || true)
+
+            if script_has_unreplaced_command_placeholder "$TARGET_DIR/$relative_path" '<lint-command>'; then
+                findings+=("仍包含 `<lint-command>` 占位符")
+            fi
+
+            if script_has_unreplaced_command_placeholder "$TARGET_DIR/$relative_path" '<test-command>'; then
+                findings+=("仍包含 `<test-command>` 占位符")
+            fi
+
+            if grep -n 'WARN: No lint tool configured' "$TARGET_DIR/$relative_path" >/dev/null 2>&1; then
+                findings+=("lint 命令是 fallback，需要人工确认")
+            fi
+
+            if grep -n 'WARN: No test framework configured' "$TARGET_DIR/$relative_path" >/dev/null 2>&1; then
+                findings+=("test 命令是 fallback，需要人工确认")
+            fi
+
+            if grep -n '当前未配置' "$TARGET_DIR/$relative_path" >/dev/null 2>&1; then
+                findings+=("包含“当前未配置”，建议人工确认是否确实缺失")
+            fi
+        fi
+
+        if [[ ${#findings[@]} -gt 0 ]]; then
+            has_followups=true
+            echo "- \`$relative_path\`"
+            printf '  - %s\n' "${findings[@]}"
+        fi
+    done
+
+    if [[ "$has_followups" == false ]]; then
+        echo "- 未发现明显占位内容或 fallback 配置。"
+    fi
+
+    echo ""
+    echo "## 风险提示"
+    echo "- Git 历史、分支命名和 PR 规范经常无法仅从本地仓库完整推断，相关文档需人工复核。"
+    echo "- 安全边界、受保护路径和认证模式可能隐藏在部署环境或私有配置中，本地扫描只能给出保守结论。"
+    echo "- 若仓库没有显式 lint/test 配置，自动生成的脚本可能只是 fallback，需要人工替换为真实命令。"
+    echo "- 业务范围与 Out of Scope 往往需要产品/项目背景信息，代码扫描只能提取当前可见边界。"
+}
+
+run_single_call_sequence() {
+    info "[2/2] 调用 ${CLI_TOOL} 单次完成全部填充（默认模式）..."
+    echo ""
+
+    run_edit_step "single_call" "单次填充全部文档与检查脚本" \
+        "$TARGET_DIR/docs/overview.md" \
+        "$TARGET_DIR/docs/architecture.md" \
+        "$TARGET_DIR/docs/conventions.md" \
+        "$TARGET_DIR/docs/quality.md" \
+        "$TARGET_DIR/docs/security.md" \
+        "$TARGET_DIR/docs/progress.md" \
+        "$TARGET_DIR/docs/plan/backlog.md" \
+        "$TARGET_DIR/docs/decisions.md" \
+        "$TARGET_DIR/scripts/check_lint.sh" \
+        "$TARGET_DIR/scripts/check_tests.sh" -- <<<"$(single_call_prompt)"
+
+    run_audit_step
+}
+
 run_fill_sequence() {
     info "[2/2] 调用 ${CLI_TOOL} 逐个填充文档..."
     echo ""
@@ -838,12 +1112,40 @@ while [[ $# -gt 0 ]]; do
             CLI_TOOL="$2"
             shift 2
             ;;
+        --model)
+            if [[ $# -lt 2 ]]; then
+                error "参数 --model 需要一个值。"
+                usage
+                exit 1
+            fi
+            MODEL="$2"
+            shift 2
+            ;;
+        --reasoning-effort)
+            if [[ $# -lt 2 ]]; then
+                error "参数 --reasoning-effort 需要一个值。"
+                usage
+                exit 1
+            fi
+            REASONING_EFFORT="$2"
+            shift 2
+            ;;
         --skip-fill)
             SKIP_FILL=true
             shift
             ;;
         --resume)
             RESUME=true
+            shift
+            ;;
+        --single-call)
+            SINGLE_CALL=true
+            ULTRA=false
+            shift
+            ;;
+        --ultra)
+            ULTRA=true
+            SINGLE_CALL=false
             shift
             ;;
         --help|-h)
@@ -886,7 +1188,11 @@ copy_template_skeleton
 if [[ "$SKIP_FILL" == true ]]; then
     warn "已跳过自动填充（--skip-fill）。"
 else
-    run_fill_sequence
+    if [[ "$ULTRA" == true ]]; then
+        run_fill_sequence
+    else
+        run_single_call_sequence
+    fi
 fi
 
 echo ""
