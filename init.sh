@@ -4,11 +4,13 @@
 #
 # 用法：
 #   cd /path/to/your-repo
-#   bash /path/to/Agent-Workflow-Template/init.sh [--cli <claude|codex>] [--skip-fill]
+#   bash /path/to/Agent-Workflow-Template/init.sh \
+#     [--cli <claude|codex>] [--skip-fill] [--resume]
 #
 # 选项：
 #   --cli <name>    指定 CLI 工具（默认：claude）
 #   --skip-fill     只复制骨架，不调用 AI 填充文档
+#   --resume        从上次失败的步骤继续执行，不重跑已完成步骤
 # ============================================================
 set -euo pipefail
 
@@ -16,77 +18,391 @@ TEMPLATE_DIR="$(cd "$(dirname "$0")" && pwd)"
 TARGET_DIR="$(pwd)"
 CLI_TOOL="claude"
 SKIP_FILL=false
+RESUME=false
+TARGET_IS_GIT_REPO=false
 
-# ---- 参数解析 ----
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        --cli) CLI_TOOL="$2"; shift 2 ;;
-        --skip-fill) SKIP_FILL=true; shift ;;
-        *) echo "未知参数: $1"; exit 1 ;;
-    esac
-done
+STATE_DIR_NAME=".agent-workflow-init"
+STATE_DIR=""
+STEP_DIR=""
+LOG_DIR=""
+REPORT_FILE=""
+FAILED_STEP_FILE=""
 
-# ---- 颜色 ----
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-# ---- 前置检查 ----
-if [ "$TEMPLATE_DIR" = "$TARGET_DIR" ]; then
-    echo -e "${RED}错误：不能在模板仓库自身运行 init.sh${NC}"
-    echo "请 cd 到你的目标项目目录后再运行。"
-    exit 1
-fi
+MANAGED_FILES=(
+    "AGENTS.md"
+    "docs/workflow.md"
+    "docs/overview.md"
+    "docs/architecture.md"
+    "docs/conventions.md"
+    "docs/decisions.md"
+    "docs/quality.md"
+    "docs/security.md"
+    "docs/progress.md"
+    "docs/blockers.md"
+    "docs/plan/backlog.md"
+    "docs/plan/current.md"
+    "docs/plan/archive/README.md"
+    "scripts/check_lint.sh"
+    "scripts/check_tests.sh"
+    "scripts/check_quality.sh"
+)
 
-if [ "$SKIP_FILL" = false ] && ! command -v "$CLI_TOOL" &> /dev/null; then
-    echo -e "${RED}错误：未找到 ${CLI_TOOL} CLI。${NC}"
-    echo "可用 --skip-fill 跳过自动填充，或 --cli <name> 指定其他工具。"
-    exit 1
-fi
+usage() {
+    cat <<EOF
+用法：
+  cd /path/to/your-repo
+  bash /path/to/Agent-Workflow-Template/init.sh [--cli <claude|codex>] [--skip-fill] [--resume]
 
-# ---- Step 1：复制模板骨架 ----
-echo -e "${GREEN}[1/2] 复制模板骨架到 ${TARGET_DIR}${NC}"
+选项：
+  --cli <name>    指定 CLI 工具（默认：claude）
+  --skip-fill     只复制骨架，不调用 AI 填充文档
+  --resume        从上次失败的步骤继续执行，不重跑已完成步骤
+EOF
+}
 
-if [ -f "$TARGET_DIR/AGENTS.md" ]; then
-    echo -e "${YELLOW}警告：目标目录已存在 AGENTS.md。${NC}"
-    read -p "是否覆盖现有模板文件？(y/N) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+info() {
+    echo -e "${GREEN}$*${NC}"
+}
+
+warn() {
+    echo -e "${YELLOW}$*${NC}"
+}
+
+error() {
+    echo -e "${RED}$*${NC}" >&2
+}
+
+confirm_or_abort() {
+    local message="$1"
+
+    if [[ ! -t 0 ]]; then
+        error "${message}"
+        error "当前会话不是交互式终端，已停止。"
+        exit 1
+    fi
+
+    read -r -p "${message} (y/N) " reply
+    if [[ ! "$reply" =~ ^[Yy]$ ]]; then
         echo "取消操作。"
         exit 0
     fi
-fi
+}
 
-cp "$TEMPLATE_DIR/AGENTS.md" "$TARGET_DIR/AGENTS.md"
+init_state_paths() {
+    STATE_DIR="${TARGET_DIR}/${STATE_DIR_NAME}"
+    STEP_DIR="${STATE_DIR}/steps"
+    LOG_DIR="${STATE_DIR}/logs"
+    REPORT_FILE="${STATE_DIR}/final-review.md"
+    FAILED_STEP_FILE="${STATE_DIR}/last_failed_step.txt"
+}
 
-mkdir -p "$TARGET_DIR/docs/plan/archive"
-for file in workflow.md overview.md architecture.md conventions.md decisions.md \
-            quality.md security.md progress.md blockers.md; do
-    cp "$TEMPLATE_DIR/docs/$file" "$TARGET_DIR/docs/$file"
-done
-cp "$TEMPLATE_DIR/docs/plan/backlog.md" "$TARGET_DIR/docs/plan/backlog.md"
-cp "$TEMPLATE_DIR/docs/plan/current.md" "$TARGET_DIR/docs/plan/current.md"
-cp "$TEMPLATE_DIR/docs/plan/archive/README.md" "$TARGET_DIR/docs/plan/archive/README.md"
+ensure_state_dirs() {
+    mkdir -p "$STEP_DIR" "$LOG_DIR"
+}
 
-mkdir -p "$TARGET_DIR/scripts"
-for file in check_lint.sh check_tests.sh check_quality.sh; do
-    cp "$TEMPLATE_DIR/scripts/$file" "$TARGET_DIR/scripts/$file"
-done
-chmod +x "$TARGET_DIR/scripts/"*.sh
+step_file() {
+    printf '%s/%s.done' "$STEP_DIR" "$1"
+}
 
-echo -e "${GREEN}模板骨架已复制。${NC}"
+is_step_done() {
+    [[ -f "$(step_file "$1")" ]]
+}
 
-# ---- Step 2：逐个文档精细填充 ----
-if [ "$SKIP_FILL" = true ]; then
-    echo -e "${YELLOW}已跳过自动填充（--skip-fill）。${NC}"
-else
-    echo -e "${GREEN}[2/2] 调用 ${CLI_TOOL} 逐个填充文档...${NC}"
-    echo ""
+mark_step_done() {
+    local step_id="$1"
+    date '+%Y-%m-%d %H:%M:%S %z' > "$(step_file "$step_id")"
+    rm -f "$FAILED_STEP_FILE"
+}
 
-    # ---- 2.1 overview.md ----
-    echo -e "${GREEN}  → 填充 docs/overview.md${NC}"
-    "$CLI_TOOL" -p "$(cat <<'PROMPT'
+mark_step_failed() {
+    local step_id="$1"
+    local reason="$2"
+    cat > "$FAILED_STEP_FILE" <<EOF
+step=${step_id}
+reason=${reason}
+EOF
+}
+
+get_mtime() {
+    local path="$1"
+
+    if stat -c '%Y' "$path" >/dev/null 2>&1; then
+        stat -c '%Y' "$path"
+    else
+        stat -f '%m' "$path"
+    fi
+}
+
+capture_fingerprint() {
+    local path="$1"
+
+    if [[ ! -f "$path" ]]; then
+        printf 'missing\n'
+        return
+    fi
+
+    printf 'file|%s|%s\n' "$(get_mtime "$path")" "$(cksum < "$path" | awk '{print $1 ":" $2}')"
+}
+
+copy_managed_file() {
+    local relative_path="$1"
+    mkdir -p "$TARGET_DIR/$(dirname "$relative_path")"
+    cp "$TEMPLATE_DIR/$relative_path" "$TARGET_DIR/$relative_path"
+}
+
+check_existing_managed_files() {
+    local conflicts=()
+    local relative_path=""
+
+    for relative_path in "${MANAGED_FILES[@]}"; do
+        if [[ -e "$TARGET_DIR/$relative_path" ]]; then
+            conflicts+=("$relative_path")
+        fi
+    done
+
+    if [[ ${#conflicts[@]} -gt 0 ]]; then
+        warn "检测到目标目录中已存在以下受 init.sh 管理的文件："
+        printf '  - %s\n' "${conflicts[@]}"
+        confirm_or_abort "继续将覆盖这些文件，是否继续？"
+    elif [[ -d "$TARGET_DIR/docs" ]]; then
+        warn "目标目录已存在 docs/ 目录。init.sh 只会写入模板管理的文件，不会清理其他文档。"
+    fi
+}
+
+ensure_resume_mode_is_valid() {
+    if [[ "$RESUME" == true ]]; then
+        if [[ ! -d "$STATE_DIR" ]]; then
+            error "未找到可恢复的状态目录：$STATE_DIR"
+            error "请先执行一次普通初始化，或移除 --resume。"
+            exit 1
+        fi
+        return
+    fi
+
+    if [[ -d "$STATE_DIR" ]]; then
+        error "检测到已有初始化状态目录：$STATE_DIR"
+        error "如果要从断点继续，请使用 --resume；如果要重头开始，请先手动删除该目录。"
+        exit 1
+    fi
+}
+
+print_resume_hint() {
+    warn "可使用以下命令从断点继续："
+    echo "  cd \"$TARGET_DIR\""
+    echo "  bash \"$TEMPLATE_DIR/init.sh\" --cli \"$CLI_TOOL\" --resume"
+}
+
+detect_cli_kind() {
+    case "$(basename "$CLI_TOOL")" in
+        codex)
+            echo "codex"
+            ;;
+        claude)
+            echo "claude"
+            ;;
+        *)
+            echo "generic"
+            ;;
+    esac
+}
+
+run_cli_prompt() {
+    local prompt="$1"
+    local cli_kind=""
+
+    cli_kind="$(detect_cli_kind)"
+
+    case "$cli_kind" in
+        codex)
+            local codex_args=("exec" "--full-auto" "--color" "never" "-C" "$TARGET_DIR")
+            if [[ "$TARGET_IS_GIT_REPO" != true ]]; then
+                codex_args+=("--skip-git-repo-check")
+            fi
+            codex_args+=("-")
+            printf '%s' "$prompt" | "$CLI_TOOL" "${codex_args[@]}"
+            ;;
+        claude|generic)
+            "$CLI_TOOL" -p "$prompt"
+            ;;
+    esac
+}
+
+validate_edit_step() {
+    local step_id="$1"
+    shift
+
+    local changed_count="$1"
+    shift
+    local files=("$@")
+    local target_file="${files[0]}"
+
+    if [[ "$changed_count" -eq 0 ]]; then
+        return 1
+    fi
+
+    case "$step_id" in
+        decisions)
+            grep -q '^## D-001 初始化 Agent Workflow 文档体系$' "$target_file"
+            ;;
+        scripts)
+            ! grep -q '<lint-command>' "$TARGET_DIR/scripts/check_lint.sh" &&
+            ! grep -q '<test-command>' "$TARGET_DIR/scripts/check_tests.sh"
+            ;;
+        audit)
+            [[ -s "$REPORT_FILE" ]]
+            ;;
+        *)
+            [[ -f "$target_file" ]]
+            ;;
+    esac
+}
+
+run_edit_step() {
+    local step_id="$1"
+    local title="$2"
+    shift 2
+    local files=()
+    local path=""
+    local prompt=""
+    local log_file="$LOG_DIR/${step_id}.log"
+    local before_states=()
+    local after_state=""
+    local index=0
+    local changed_count=0
+
+    while [[ $# -gt 0 ]]; do
+        path="$1"
+        shift
+        if [[ "$path" == "--" ]]; then
+            break
+        fi
+        files+=("$path")
+    done
+
+    prompt="$(cat)"
+
+    ensure_state_dirs
+
+    if [[ "$RESUME" == true && -f "$(step_file "$step_id")" ]]; then
+        warn "  → 跳过 ${title}（已完成）"
+        return 0
+    fi
+
+    for path in "${files[@]}"; do
+        before_states+=("$(capture_fingerprint "$path")")
+    done
+
+    info "  → ${title}"
+    if ! (
+        cd "$TARGET_DIR"
+        run_cli_prompt "$prompt"
+    ) >"$log_file" 2>&1; then
+        error "步骤失败：${title}"
+        error "日志：$log_file"
+        tail -n 20 "$log_file" || true
+        mark_step_failed "$step_id" "command_failed"
+        print_resume_hint
+        exit 1
+    fi
+
+    for index in "${!files[@]}"; do
+        after_state="$(capture_fingerprint "${files[$index]}")"
+        if [[ "$after_state" != "${before_states[$index]}" ]]; then
+            changed_count=$((changed_count + 1))
+        fi
+    done
+
+    if ! validate_edit_step "$step_id" "$changed_count" "${files[@]}"; then
+        error "步骤未通过结果校验：${title}"
+        error "CLI 已成功返回，但目标文件没有按预期落盘。"
+        error "日志：$log_file"
+        mark_step_failed "$step_id" "validation_failed"
+        print_resume_hint
+        exit 1
+    fi
+
+    mark_step_done "$step_id"
+}
+
+run_audit_step() {
+    local step_id="audit"
+    local title="最终扫描并生成人工补充清单"
+    local log_file="$LOG_DIR/${step_id}.log"
+
+    ensure_state_dirs
+
+    if [[ "$RESUME" == true && -f "$(step_file "$step_id")" && -s "$REPORT_FILE" ]]; then
+        warn "  → 跳过 ${title}（已完成）"
+        return 0
+    fi
+
+    info "  → ${title}"
+    if ! (
+        cd "$TARGET_DIR"
+        run_cli_prompt "$(audit_prompt)"
+    ) >"$REPORT_FILE" 2>"$log_file"; then
+        error "步骤失败：${title}"
+        error "日志：$log_file"
+        mark_step_failed "$step_id" "command_failed"
+        print_resume_hint
+        exit 1
+    fi
+
+    if ! validate_edit_step "$step_id" 1 "$REPORT_FILE"; then
+        error "步骤未通过结果校验：${title}"
+        error "报告文件为空：$REPORT_FILE"
+        mark_step_failed "$step_id" "validation_failed"
+        print_resume_hint
+        exit 1
+    fi
+
+    mark_step_done "$step_id"
+}
+
+copy_template_skeleton() {
+    local step_id="copy_skeleton"
+
+    if [[ "$RESUME" == true && -f "$(step_file "$step_id")" ]]; then
+        warn "[1/2] 跳过模板骨架复制（已完成）"
+        return
+    fi
+
+    info "[1/2] 复制模板骨架到 ${TARGET_DIR}"
+    check_existing_managed_files
+    ensure_state_dirs
+
+    copy_managed_file "AGENTS.md"
+    mkdir -p "$TARGET_DIR/docs/plan/archive"
+    copy_managed_file "docs/workflow.md"
+    copy_managed_file "docs/overview.md"
+    copy_managed_file "docs/architecture.md"
+    copy_managed_file "docs/conventions.md"
+    copy_managed_file "docs/decisions.md"
+    copy_managed_file "docs/quality.md"
+    copy_managed_file "docs/security.md"
+    copy_managed_file "docs/progress.md"
+    copy_managed_file "docs/blockers.md"
+    copy_managed_file "docs/plan/backlog.md"
+    copy_managed_file "docs/plan/current.md"
+    copy_managed_file "docs/plan/archive/README.md"
+
+    mkdir -p "$TARGET_DIR/scripts"
+    copy_managed_file "scripts/check_lint.sh"
+    copy_managed_file "scripts/check_tests.sh"
+    copy_managed_file "scripts/check_quality.sh"
+    chmod +x "$TARGET_DIR/scripts/"*.sh
+
+    mark_step_done "$step_id"
+    info "模板骨架已复制。"
+}
+
+overview_prompt() {
+    cat <<'PROMPT'
 分析当前代码库，填充 docs/overview.md。不要修改任何其他文件。
 
 ## 分析步骤
@@ -120,11 +436,10 @@ else
 - 无法确认的信息保留"（待填写）"
 - 不要编造信息
 PROMPT
-)"
+}
 
-    # ---- 2.2 architecture.md ----
-    echo -e "${GREEN}  → 填充 docs/architecture.md${NC}"
-    "$CLI_TOOL" -p "$(cat <<'PROMPT'
+architecture_prompt() {
+    cat <<'PROMPT'
 分析当前代码库的结构和依赖关系，填充 docs/architecture.md。不要修改任何其他文件。
 
 ## 分析步骤
@@ -164,11 +479,10 @@ PROMPT
 - "维护规则"部分不要修改
 - 无法确认的信息保留"（待填写）"
 PROMPT
-)"
+}
 
-    # ---- 2.3 conventions.md ----
-    echo -e "${GREEN}  → 填充 docs/conventions.md${NC}"
-    "$CLI_TOOL" -p "$(cat <<'PROMPT'
+conventions_prompt() {
+    cat <<'PROMPT'
 分析当前代码库的代码风格和 git 习惯，填充 docs/conventions.md。不要修改任何其他文件。
 
 ## 分析步骤
@@ -209,11 +523,10 @@ PROMPT
 - "维护规则"部分不要修改
 - 无法确认的信息保留"（待填写）"
 PROMPT
-)"
+}
 
-    # ---- 2.4 quality.md ----
-    echo -e "${GREEN}  → 填充 docs/quality.md${NC}"
-    "$CLI_TOOL" -p "$(cat <<'PROMPT'
+quality_prompt() {
+    cat <<'PROMPT'
 分析当前代码库的测试设置，填充 docs/quality.md。不要修改任何其他文件。
 
 ## 分析步骤
@@ -252,11 +565,10 @@ PROMPT
 - "维护规则"部分不要修改
 - 无法确认的信息保留"（待填写）"
 PROMPT
-)"
+}
 
-    # ---- 2.5 security.md ----
-    echo -e "${GREEN}  → 填充 docs/security.md${NC}"
-    "$CLI_TOOL" -p "$(cat <<'PROMPT'
+security_prompt() {
+    cat <<'PROMPT'
 分析当前代码库的安全相关配置，填充 docs/security.md。不要修改任何其他文件。
 
 ## 分析步骤
@@ -290,11 +602,10 @@ PROMPT
 - "安全变更规则"部分不要修改
 - 无法确认的信息保留"（待填写）"
 PROMPT
-)"
+}
 
-    # ---- 2.6 progress.md ----
-    echo -e "${GREEN}  → 填充 docs/progress.md${NC}"
-    "$CLI_TOOL" -p "$(cat <<'PROMPT'
+progress_prompt() {
+    cat <<'PROMPT'
 分析当前代码库的完成状态，填充 docs/progress.md。不要修改任何其他文件。
 
 ## 分析步骤
@@ -331,18 +642,17 @@ PROMPT
 - 只记录事实状态，不写未来意图
 - 不要编造功能完成情况
 PROMPT
-)"
+}
 
-    # ---- 2.7 plan/backlog.md ----
-    echo -e "${GREEN}  → 填充 docs/plan/backlog.md${NC}"
-    "$CLI_TOOL" -p "$(cat <<'PROMPT'
+backlog_prompt() {
+    cat <<'PROMPT'
 分析当前代码库中的待办事项，填充 docs/plan/backlog.md。不要修改任何其他文件。
 
 ## 分析步骤
 
 1. 搜索代码中所有 TODO、FIXME、HACK、XXX 注释，记录文件路径和内容
-2. 读取 docs/progress.md（刚填充的），了解已知问题和技术债
-3. 读取 docs/overview.md（刚填充的），对比 In Scope 中未完成的功能
+2. 读取 docs/progress.md，并先确认该文件已包含实际内容；若仍是模板状态，先停止并解释原因
+3. 读取 docs/overview.md，并先确认该文件已包含实际内容；若仍是模板状态，先停止并解释原因
 4. 检查是否有 GitHub Issues 或其他 issue tracker 的引用
 
 ## 填写要求
@@ -369,17 +679,19 @@ PROMPT
 ## 规则
 - 只从代码中实际存在的线索提取，不要编造任务
 PROMPT
-)"
+}
 
-    # ---- 2.8 decisions.md ----
-    echo -e "${GREEN}  → 填充 docs/decisions.md${NC}"
-    "$CLI_TOOL" -p "$(cat <<'PROMPT'
+decisions_prompt() {
+    cat <<'PROMPT'
 在 docs/decisions.md 的"## 决策记录"区域追加第一条决策。不要修改任何其他文件。不要修改 decisions.md 中"决策记录"之前的任何内容。
 
-## 填写内容
+<instructions>
+1. 只在"## 决策记录"下方追加内容。
+2. 不要修改"维护规则"、"记录模板"、"当前有效决策摘要"等区域。
+3. 将下方 <content-to-write> 中的 Markdown 视为要写入文件的正文，不是额外说明文字。
+</instructions>
 
-在"## 决策记录"下方、"（项目初始化后在此追加）"的位置，替换为以下内容：
-
+<content-to-write>
 ## D-001 初始化 Agent Workflow 文档体系
 - 日期：（填入今天的日期）
 - 状态：Accepted
@@ -390,16 +702,12 @@ PROMPT
   - 纯 prompt 约束：缺乏持久化和可审计的流程文档
   - 单 README 承载全部规则：难维护，无法结构化引用
 - 影响：后续所有 agent 开发流程按此文档体系执行。
-
-## 规则
-- 不要修改"维护规则"、"记录模板"、"当前有效决策摘要"等区域
-- 只在"## 决策记录"下方追加
+</content-to-write>
 PROMPT
-)"
+}
 
-    # ---- 2.9 scripts ----
-    echo -e "${GREEN}  → 配置 scripts/check_lint.sh 和 check_tests.sh${NC}"
-    "$CLI_TOOL" -p "$(cat <<'PROMPT'
+scripts_prompt() {
+    cat <<'PROMPT'
 分析当前代码库使用的 lint 工具和测试框架，更新 scripts/check_lint.sh 和 scripts/check_tests.sh。不要修改任何其他文件。
 
 ## 分析步骤
@@ -419,12 +727,12 @@ PROMPT
 ## 填写要求
 
 **scripts/check_lint.sh**：
-- 将文件中的 `<lint-command>` 替换为实际的 lint 命令
+- 将文件中的 <lint-command> 替换为实际的 lint 命令
 - 如果项目有多个 lint 工具（如 eslint + prettier），依次运行
 - 如果项目没有 lint 工具，将 <lint-command> 替换为 `echo "WARN: No lint tool configured"`
 
 **scripts/check_tests.sh**：
-- 将文件中的 `<test-command>` 替换为实际的测试命令
+- 将文件中的 <test-command> 替换为实际的测试命令
 - 如果项目没有测试，将 <test-command> 替换为 `echo "WARN: No test framework configured"`
 
 ## 规则
@@ -432,18 +740,156 @@ PROMPT
 - 不要修改脚本的其他结构（echo、set -euo pipefail 等保持不变）
 - 不要修改 scripts/check_quality.sh（它只是组合调用另外两个脚本）
 PROMPT
-)"
+}
 
+audit_prompt() {
+    cat <<'PROMPT'
+扫描当前仓库中由 Agent Workflow Template 初始化的文档，输出一个 Markdown 清单，列出仍需要人类手动补充或确认的内容。不要修改任何文件。
+
+## 检查范围
+
+1. AGENTS.md
+2. docs/overview.md
+3. docs/architecture.md
+4. docs/conventions.md
+5. docs/decisions.md
+6. docs/quality.md
+7. docs/security.md
+8. docs/progress.md
+9. docs/plan/backlog.md
+10. docs/plan/current.md
+11. scripts/check_lint.sh
+12. scripts/check_tests.sh
+
+## 输出要求
+
+请输出以下结构：
+
+# 初始化后人工补充清单
+
+## 已完成概览
+- 简述已经由自动流程完成的部分
+
+## 仍需人工补充
+- 按文件列出仍存在的"（待填写）"、占位内容、需要人工判断的模糊项
+- 如果某文件看起来仍是模板状态，明确指出
+- 如果某些命令只是 fallback（例如 WARN: No lint tool configured），明确指出需要人工确认
+
+## 风险提示
+- 列出自动初始化无法可靠推断、因此最容易出错的 3-5 项
+
+## 规则
+- 仅输出 Markdown 到 stdout
+- 不要修改仓库中的任何文件
+- 不要省略仍需人工处理的空白项
+PROMPT
+}
+
+run_fill_sequence() {
+    info "[2/2] 调用 ${CLI_TOOL} 逐个填充文档..."
+    echo ""
+
+    cd "$TARGET_DIR"
+
+    run_edit_step "overview" "填充 docs/overview.md" \
+        "$TARGET_DIR/docs/overview.md" -- <<<"$(overview_prompt)"
+    run_edit_step "architecture" "填充 docs/architecture.md" \
+        "$TARGET_DIR/docs/architecture.md" -- <<<"$(architecture_prompt)"
+    run_edit_step "conventions" "填充 docs/conventions.md" \
+        "$TARGET_DIR/docs/conventions.md" -- <<<"$(conventions_prompt)"
+    run_edit_step "quality" "填充 docs/quality.md" \
+        "$TARGET_DIR/docs/quality.md" -- <<<"$(quality_prompt)"
+    run_edit_step "security" "填充 docs/security.md" \
+        "$TARGET_DIR/docs/security.md" -- <<<"$(security_prompt)"
+    run_edit_step "progress" "填充 docs/progress.md" \
+        "$TARGET_DIR/docs/progress.md" -- <<<"$(progress_prompt)"
+    run_edit_step "backlog" "填充 docs/plan/backlog.md" \
+        "$TARGET_DIR/docs/plan/backlog.md" -- <<<"$(backlog_prompt)"
+    run_edit_step "decisions" "填充 docs/decisions.md" \
+        "$TARGET_DIR/docs/decisions.md" -- <<<"$(decisions_prompt)"
+    run_edit_step "scripts" "配置 scripts/check_lint.sh 和 check_tests.sh" \
+        "$TARGET_DIR/scripts/check_lint.sh" \
+        "$TARGET_DIR/scripts/check_tests.sh" -- <<<"$(scripts_prompt)"
+
+    run_audit_step
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --cli)
+            if [[ $# -lt 2 ]]; then
+                error "参数 --cli 需要一个值。"
+                usage
+                exit 1
+            fi
+            CLI_TOOL="$2"
+            shift 2
+            ;;
+        --skip-fill)
+            SKIP_FILL=true
+            shift
+            ;;
+        --resume)
+            RESUME=true
+            shift
+            ;;
+        --help|-h)
+            usage
+            exit 0
+            ;;
+        *)
+            error "未知参数: $1"
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+if [[ "$TEMPLATE_DIR" == "$TARGET_DIR" ]]; then
+    error "错误：不能在模板仓库自身运行 init.sh"
+    echo "请 cd 到你的目标项目目录后再运行。"
+    exit 1
+fi
+
+if [[ "$SKIP_FILL" == false ]] && ! command -v "$CLI_TOOL" >/dev/null 2>&1; then
+    error "错误：未找到 ${CLI_TOOL} CLI。"
+    echo "可用 --skip-fill 跳过自动填充，或 --cli <name> 指定其他工具。"
+    exit 1
+fi
+
+init_state_paths
+ensure_resume_mode_is_valid
+
+if git -C "$TARGET_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    TARGET_IS_GIT_REPO=true
+    info "检测到目标目录是 Git 仓库。"
+else
+    warn "警告：目标目录不是 Git 仓库。后续 AI prompt 中若依赖 git log / git branch，结果可能退化。"
+fi
+
+copy_template_skeleton
+
+if [[ "$SKIP_FILL" == true ]]; then
+    warn "已跳过自动填充（--skip-fill）。"
+else
+    run_fill_sequence
 fi
 
 echo ""
-echo -e "${GREEN}============================================================${NC}"
-echo -e "${GREEN}初始化完成！${NC}"
-echo -e "${GREEN}============================================================${NC}"
+info "============================================================"
+info "初始化完成！"
+info "============================================================"
 echo ""
+
+if [[ -s "$REPORT_FILE" ]]; then
+    echo "自动审计报告：$REPORT_FILE"
+    echo ""
+    cat "$REPORT_FILE"
+    echo ""
+fi
+
 echo "下一步："
 echo "  1. 检查 docs/ 下的文档，补充标记为（待填写）的内容"
 echo "  2. 运行 ./scripts/check_quality.sh 确认脚本可以正常执行"
 echo "  3. 在 docs/plan/backlog.md 中补充你的第一批 issue"
 echo "  4. 启动 agent：${CLI_TOOL} \"读 AGENTS.md，然后开始工作。\""
-echo ""
