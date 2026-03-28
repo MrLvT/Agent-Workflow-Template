@@ -8,21 +8,21 @@
 
 - [ ] 功能实现与 `docs/plan/current.md` 一致
 - [ ] 无明显重复逻辑和死代码
-- [ ] lint 全通过
+- [ ] 涉及架构/安全/决策边界的变更已同步更新对应文档
 
-### 测试质量
+### Issue 回归质量
 
-- [ ] 关键路径有自动化测试
-- [ ] 原有测试无回归
-- [ ] 新增失败场景有覆盖（如适用）
-- [ ] 主路径功能已完成至少一次 sanity check，并确认行为符合预期
-- [ ] 若当前没有自动化测试框架，已记录可复现的手工验证命令/脚本与结果
+- [ ] 当前 issue 对应的 `issue_test/<issue_id>.sh` 已存在并覆盖目标行为
+- [ ] 实现前已运行历史回归基线：`bash scripts/run_issue_tests.sh --exclude issue_test/<issue_id>.sh`
+- [ ] 提交前已运行完整回归：`bash scripts/run_issue_tests.sh`
+- [ ] 若修改了历史 `issue_test/*.sh`，已记录原因与影响范围
 
 ### 文档同步
 
 - [ ] 变更已同步到相关文档
 - [ ] 重要决策已写入 `docs/decisions.md`
 - [ ] `docs/progress.md` 已反映当前状态
+- [ ] 已记录交付状态：PR URL，或“本地交付 + 人工 handoff”信息
 
 ### 安全
 
@@ -30,40 +30,40 @@
 - [ ] 认证/鉴权相关改动经过复核（如适用）
 - [ ] 变更风险已在 PR 描述中注明
 
-## 测试栈（待填写）
+## issue_test 机制（固定）
 
-- 单元测试框架：
-- 集成测试框架：
-- Mock 工具：
-- 覆盖率工具：
+- 目录：`issue_test/`
+- 命名：`issue_test/<issue_id>.sh`
+- 执行入口：`bash scripts/run_issue_tests.sh`
+- 历史脚本策略：默认长期保留，后续 issue 必须全部通过
 
-## 测试目录（待填写）
+## 项目原生检查（待填写）
 
-- 单元测试：`tests/unit/`
-- 集成测试：`tests/integration/`
-- 测试数据：`tests/fixtures/`
+- 单元/集成测试框架：
+- 静态检查工具：
+- 其他交付前命令：
 
-## 测试命令（待填写）
+## 常用验证命令
 
 ```bash
-# 全量测试
-<command>
+# 运行全部 issue 回归
+bash scripts/run_issue_tests.sh
 
-# 仅单元测试
-<command>
+# 实现当前 issue 前，先跑历史回归基线
+bash scripts/run_issue_tests.sh --exclude issue_test/<issue_id>.sh
 
-# 覆盖率
+# 项目原生检查（如有）
 <command>
 ```
 
 ## 失败处理流程
 
-1. 先修复 deterministic 失败，再处理 flaky 用例。
-2. 禁止通过删除测试来"修复"失败。
+1. 先修复 deterministic 的 issue 回归失败，再处理 flaky 场景。
+2. 禁止通过删除、跳过或弱化历史 `issue_test/*.sh` 来"修复"失败。
 3. 若需临时跳过，必须记录原因和恢复计划。
 
 ## 维护规则
 
 1. 新的质量门槛必须先写入本文件，再纳入 CI。
 2. 本文件是提交前强制自查列表，不应弱化。
-3. 自动化测试优先；若暂时缺失，至少保留一次可复现的 sanity check 记录。
+3. 每个 issue 都必须新增或绑定一个可复现的 `issue_test/<issue_id>.sh`。

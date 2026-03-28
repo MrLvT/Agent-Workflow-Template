@@ -33,3 +33,14 @@
 ```
 
 ## 决策记录
+
+## D-001 初始化 Agent Workflow 文档体系
+- 日期：__INIT_DATE__
+- 状态：Accepted
+- 背景：__INIT_BACKGROUND__
+- 决策：采用 Agent Workflow Template 的 AGENTS.md + docs/ + issue_test/ + scripts/ 结构。
+- 原因：文档驱动的工作流架构，每个文档职责单一且解耦；SubGraph 状态机提供清晰的 Stage 跳转逻辑；issue_test/ + scripts/run_issue_tests.sh 提供按 issue 累积的确定性回归检查；build_context.py 强制 Agent 在正确的 context 下执行。
+- 被拒绝方案：
+  - 纯 prompt 约束：缺乏持久化和可审计的流程文档
+  - 单 README 承载全部规则：难维护，无法结构化引用
+- 影响：后续所有 Agent 开发流程按此文档体系执行；stage.lock 记录全局状态，build_context.py 机械组装 context，issue_test/ 持续沉淀历史回归脚本。

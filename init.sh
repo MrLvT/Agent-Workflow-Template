@@ -6,7 +6,7 @@
 #   cd /path/to/your-repo
 #   bash /path/to/Agent-Workflow-Template/init.sh \
 #     [--cli <claude|codex>] [--model <name>] [--reasoning-effort <level>] \
-#     [--skip-fill] [--resume] [--greenfield] [--ultra] [--no-docs-review] \
+#     [--skip-fill] [--greenfield] [--ultra] [--no-docs-review] \
 #     [--non-interactive]
 #
 # 选项：
@@ -14,7 +14,6 @@
 #   --model <name>  指定 AI 模型（默认：gpt-5.4）
 #   --reasoning-effort <level> 指定推理强度（默认：xhigh）
 #   --skip-fill        只复制骨架，不调用 AI 填充文档
-#   --resume           从上次失败的步骤继续执行，不重跑已完成步骤
 #   --greenfield       按全新 agent 主导项目初始化（默认是存量仓库 adopt 模式）
 #   --ultra            使用逐文件多次 AI 调用完成初始化填充
 #   --no-docs-review   跳过独立 docs review 步骤
@@ -29,22 +28,17 @@ CLI_TOOL="claude"
 MODEL="gpt-5.4"
 REASONING_EFFORT="xhigh"
 SKIP_FILL=false
-RESUME=false
 INIT_MODE="adopt"
 SINGLE_CALL=true
 ULTRA=false
 DOCS_REVIEW_ENABLED=true
 NON_INTERACTIVE=false
-TARGET_IS_GIT_REPO=false
 
-STATE_DIR_NAME=".agent-workflow-init"
+STATE_DIR_NAME=".git/.agent-workflow-init"
 STATE_DIR=""
-STEP_DIR=""
 LOG_DIR=""
 REPORT_FILE=""
 DOCS_REVIEW_FILE=""
-FAILED_STEP_FILE=""
-CONFIG_FILE=""
 
 CLI_TOOL_EXPLICIT=false
 MODEL_EXPLICIT=false
@@ -62,7 +56,15 @@ NC='\033[0m'
 
 MANAGED_FILES=(
     "AGENTS.md"
-    "docs/workflow.md"
+    "docs/stage.lock"
+    "docs/workflow/stage1.md"
+    "docs/workflow/stage2.md"
+    "docs/workflow/stage3.md"
+    "docs/workflow/stage4.md"
+    "docs/workflow/stage5.md"
+    "docs/workflow/stage6.md"
+    "docs/wisdom.md"
+    "docs/antipatterns.md"
     "docs/overview.md"
     "docs/architecture.md"
     "docs/conventions.md"
@@ -74,16 +76,16 @@ MANAGED_FILES=(
     "docs/plan/backlog.md"
     "docs/plan/current.md"
     "docs/plan/archive/README.md"
-    "scripts/check_lint.sh"
-    "scripts/check_tests.sh"
-    "scripts/check_quality.sh"
+    "issue_test/README.md"
+    "scripts/build_context.py"
+    "scripts/run_issue_tests.sh"
 )
 
 usage() {
     cat <<EOF
 用法：
   cd /path/to/your-repo
-  bash /path/to/Agent-Workflow-Template/init.sh [--cli <claude|codex>] [--model <name>] [--reasoning-effort <level>] [--skip-fill] [--resume] [--greenfield] [--ultra] [--no-docs-review] [--non-interactive]
+  bash /path/to/Agent-Workflow-Template/init.sh [--cli <claude|codex>] [--model <name>] [--reasoning-effort <level>] [--skip-fill] [--greenfield] [--ultra] [--no-docs-review] [--non-interactive]
 
 选项：
   --cli <name>    指定 CLI 工具（默认：claude）
@@ -91,7 +93,6 @@ usage() {
   --reasoning-effort <level>
                    指定推理强度（默认：xhigh）
   --skip-fill        只复制骨架，不调用 AI 填充文档
-  --resume           从上次失败的步骤继续执行，不重跑已完成步骤
   --greenfield       按全新 agent 主导项目初始化（默认是存量仓库 adopt 模式）
   --single-call      兼容别名；默认已经是单次 AI 调用
   --ultra            使用逐文件多次 AI 调用完成初始化填充
@@ -314,10 +315,6 @@ run_interactive_setup() {
         return
     fi
 
-    if [[ "$RESUME" == true ]]; then
-        return
-    fi
-
     info "未提供完整参数，进入交互式初始化向导。"
 
     if [[ "$INIT_MODE_EXPLICIT" != true ]]; then
@@ -353,114 +350,18 @@ run_interactive_setup() {
 
 init_state_paths() {
     STATE_DIR="${TARGET_DIR}/${STATE_DIR_NAME}"
-    STEP_DIR="${STATE_DIR}/steps"
     LOG_DIR="${STATE_DIR}/logs"
     REPORT_FILE="${STATE_DIR}/final-review.md"
     DOCS_REVIEW_FILE="${STATE_DIR}/docs-review.md"
-    FAILED_STEP_FILE="${STATE_DIR}/last_failed_step.txt"
-    CONFIG_FILE="${STATE_DIR}/config.env"
 }
 
 ensure_state_dirs() {
-    mkdir -p "$STEP_DIR" "$LOG_DIR"
+    mkdir -p "$LOG_DIR"
 }
 
-save_run_config() {
+reset_run_artifacts() {
     ensure_state_dirs
-    cat > "$CONFIG_FILE" <<EOF
-CLI_TOOL=$(printf '%q' "$CLI_TOOL")
-MODEL=$(printf '%q' "$MODEL")
-REASONING_EFFORT=$(printf '%q' "$REASONING_EFFORT")
-SKIP_FILL=${SKIP_FILL}
-INIT_MODE=$(printf '%q' "$INIT_MODE")
-SINGLE_CALL=${SINGLE_CALL}
-ULTRA=${ULTRA}
-DOCS_REVIEW_ENABLED=${DOCS_REVIEW_ENABLED}
-NON_INTERACTIVE=${NON_INTERACTIVE}
-EOF
-}
-
-load_saved_config() {
-    local line=""
-    local key=""
-    local value=""
-
-    if [[ ! -f "$CONFIG_FILE" ]]; then
-        return
-    fi
-
-    while IFS='=' read -r key value; do
-        case "$key" in
-            CLI_TOOL)
-                if [[ "$CLI_TOOL_EXPLICIT" != true ]]; then
-                    eval "CLI_TOOL=${value}"
-                fi
-                ;;
-            MODEL)
-                if [[ "$MODEL_EXPLICIT" != true ]]; then
-                    eval "MODEL=${value}"
-                fi
-                ;;
-            REASONING_EFFORT)
-                if [[ "$REASONING_EFFORT_EXPLICIT" != true ]]; then
-                    eval "REASONING_EFFORT=${value}"
-                fi
-                ;;
-            SKIP_FILL)
-                if [[ "$SKIP_FILL_EXPLICIT" != true ]]; then
-                    SKIP_FILL="$value"
-                fi
-                ;;
-            INIT_MODE)
-                if [[ "$INIT_MODE_EXPLICIT" != true ]]; then
-                    eval "INIT_MODE=${value}"
-                fi
-                ;;
-            SINGLE_CALL)
-                if [[ "$EXECUTION_MODE_EXPLICIT" != true ]]; then
-                    SINGLE_CALL="$value"
-                fi
-                ;;
-            ULTRA)
-                if [[ "$EXECUTION_MODE_EXPLICIT" != true ]]; then
-                    ULTRA="$value"
-                fi
-                ;;
-            DOCS_REVIEW_ENABLED)
-                if [[ "$DOCS_REVIEW_EXPLICIT" != true ]]; then
-                    DOCS_REVIEW_ENABLED="$value"
-                fi
-                ;;
-            NON_INTERACTIVE)
-                if [[ "$NON_INTERACTIVE_EXPLICIT" != true ]]; then
-                    NON_INTERACTIVE="$value"
-                fi
-                ;;
-        esac
-    done < "$CONFIG_FILE"
-}
-
-step_file() {
-    printf '%s/%s.done' "$STEP_DIR" "$1"
-}
-
-is_step_done() {
-    [[ -f "$(step_file "$1")" ]]
-}
-
-mark_step_done() {
-    local step_id="$1"
-    date '+%Y-%m-%d %H:%M:%S %z' > "$(step_file "$step_id")"
-    rm -f "$FAILED_STEP_FILE"
-}
-
-mark_step_failed() {
-    local step_id="$1"
-    local reason="$2"
-    cat > "$FAILED_STEP_FILE" <<EOF
-step=${step_id}
-reason=${reason}
-EOF
+    rm -f "$REPORT_FILE" "$DOCS_REVIEW_FILE" "$LOG_DIR"/*.log
 }
 
 get_mtime() {
@@ -530,57 +431,30 @@ check_existing_managed_files() {
     fi
 }
 
-ensure_resume_mode_is_valid() {
-    if [[ "$RESUME" == true ]]; then
-        if [[ ! -d "$STATE_DIR" ]]; then
-            error "未找到可恢复的状态目录：$STATE_DIR"
-            error "请先执行一次普通初始化，或移除 --resume。"
+ensure_scaffold_is_valid() {
+    local required_files=(
+        "AGENTS.md"
+        "docs/stage.lock"
+        "docs/workflow/stage1.md"
+        "docs/workflow/stage2.md"
+        "docs/workflow/stage3.md"
+        "docs/workflow/stage4.md"
+        "docs/workflow/stage5.md"
+        "docs/workflow/stage6.md"
+        "docs/wisdom.md"
+        "docs/antipatterns.md"
+        "docs/plan/current.md"
+        "issue_test/README.md"
+        "scripts/build_context.py"
+        "scripts/run_issue_tests.sh"
+    )
+    local f=""
+    for f in "${required_files[@]}"; do
+        if [[ ! -f "$SCAFFOLD_DIR/$f" ]]; then
+            error "缺少初始化骨架文件：$SCAFFOLD_DIR/$f"
             exit 1
         fi
-        return
-    fi
-
-    if [[ -d "$STATE_DIR" ]]; then
-        error "检测到已有初始化状态目录：$STATE_DIR"
-        error "如果要从断点继续，请使用 --resume；如果要重头开始，请先手动删除该目录。"
-        exit 1
-    fi
-}
-
-print_resume_hint() {
-    local -a args=("--cli" "$CLI_TOOL" "--model" "$MODEL" "--reasoning-effort" "$REASONING_EFFORT")
-
-    if [[ "$INIT_MODE" == "greenfield" ]]; then
-        args+=("--greenfield")
-    fi
-
-    if [[ "$ULTRA" == true ]]; then
-        args+=("--ultra")
-    fi
-
-    if [[ "$DOCS_REVIEW_ENABLED" != true ]]; then
-        args+=("--no-docs-review")
-    fi
-
-    args+=("--resume")
-
-    warn "可使用以下命令从断点继续："
-    echo "  cd \"$TARGET_DIR\""
-    printf '  bash "%s/init.sh"' "$SCRIPT_DIR"
-    printf ' "%s"' "${args[@]}"
-    printf '\n'
-}
-
-ensure_scaffold_is_valid() {
-    if [[ ! -f "$SCAFFOLD_DIR/AGENTS.md" ]]; then
-        error "缺少初始化骨架文件：$SCAFFOLD_DIR/AGENTS.md"
-        exit 1
-    fi
-
-    if [[ ! -f "$SCAFFOLD_DIR/docs/plan/current.md" ]]; then
-        error "缺少初始化骨架文件：$SCAFFOLD_DIR/docs/plan/current.md"
-        exit 1
-    fi
+    done
 }
 
 detect_cli_kind() {
@@ -626,43 +500,20 @@ EOF
     fi
 }
 
-decision_record_markdown() {
-    local today
-    today="$(date '+%Y-%m-%d')"
+bootstrap_edit_guard_prompt() {
+    cat <<'EOF'
+这是初始化文档填充任务，不是正常的 Stage workflow。
 
-    if [[ "$INIT_MODE" == "greenfield" ]]; then
-        cat <<EOF
-## D-001 初始化 Agent Workflow 文档体系
-- 日期：${today}
-- 状态：Accepted
-- 背景：项目需要建立结构化的 agent 工作流文档体系，以支持 AI agent 自主开发。
-- 决策：采用 Agent Workflow Template 的 AGENTS.md + docs/ + scripts/ 结构。
-- 原因：文档驱动的 SAS 架构，每个文档职责单一且解耦，workflow 状态机提供清晰的 stage 跳转逻辑，scripts/ 提供确定性检查。
-- 被拒绝方案：
-  - 纯 prompt 约束：缺乏持久化和可审计的流程文档
-  - 单 README 承载全部规则：难维护，无法结构化引用
-- 影响：后续所有 agent 开发流程按此文档体系执行。
+- 不要读取 `AGENTS.md`
+- 不要读取 `docs/stage.lock`
+- 不要读取 `docs/workflow/stage*.md`
+- 不要读取 `docs/plan/current.md`，除非当前 prompt 明确要求
+- 只做完成当前目标文件所必需的读取
+- 读到足够事实后，必须立刻修改目标文件，不要停留在分析阶段
+- 最多执行 8 个只读命令后，必须开始编辑
+- 若信息仍无法确认，按模板要求写 `（待填写）` 或 `当前未配置`，不要为了“再确认一点”继续扩展搜索
+- 必须直接落盘修改目标文件，然后结束；不要输出方案后停止
 EOF
-    else
-        cat <<EOF
-## D-001 初始化 Agent Workflow 文档体系
-- 日期：${today}
-- 状态：Accepted
-- 背景：该仓库在已有代码和实验资产的基础上接入 Agent Workflow Template，需要先把当前事实沉淀为可维护文档，再逐步收敛到统一流程。
-- 决策：采用 Agent Workflow Template 的 AGENTS.md + docs/ + scripts/ 结构，并以“先描述现状、再逐步强化约束”的方式完成接入。
-- 原因：存量项目往往缺少完整的历史决策、质量门和边界声明，先记录现状可以减少模板与历史资产的摩擦，同时为后续增量治理提供入口。
-- 被拒绝方案：
-  - 直接按 greenfield 假设重写全部文档：容易把理想态误写成事实，误导后续 agent
-  - 仅保留 README 和临时 prompt：缺乏持久化流程约束，无法支撑后续协作和审计
-- 影响：文档会优先反映仓库当前状态；后续若补齐 lint/test/CI/边界规则，应通过正常工作流逐步更新。
-EOF
-    fi
-}
-
-script_has_unreplaced_command_placeholder() {
-    local script_path="$1"
-    local placeholder="$2"
-    grep -qE "^[[:space:]]*${placeholder}[[:space:]]*$" "$script_path"
 }
 
 run_cli_prompt() {
@@ -681,9 +532,6 @@ run_cli_prompt() {
                 "-c" "model_reasoning_effort=\"$REASONING_EFFORT\""
                 "-C" "$TARGET_DIR"
             )
-            if [[ "$TARGET_IS_GIT_REPO" != true ]]; then
-                codex_args+=("--skip-git-repo-check")
-            fi
             codex_args+=("-")
             printf '%s' "$prompt" | "$CLI_TOOL" "${codex_args[@]}"
             ;;
@@ -708,30 +556,8 @@ validate_edit_step() {
             local relative_path=""
             for file in "${files[@]}"; do
                 relative_path="$(relative_to_target "$file")"
-                case "$relative_path" in
-                    docs/decisions.md)
-                        grep -q '^## D-001 初始化 Agent Workflow 文档体系$' "$file" || return 1
-                        ;;
-                    scripts/check_lint.sh)
-                        ! script_has_unreplaced_command_placeholder "$file" '<lint-command>' || return 1
-                        ;;
-                    scripts/check_tests.sh)
-                        ! script_has_unreplaced_command_placeholder "$file" '<test-command>' || return 1
-                        ;;
-                    *)
-                        file_differs_from_scaffold "$relative_path" || return 1
-                        ;;
-                esac
+                file_differs_from_scaffold "$relative_path" || return 1
             done
-            ;;
-        decisions)
-            [[ "$changed_count" -gt 0 ]] &&
-            grep -q '^## D-001 初始化 Agent Workflow 文档体系$' "$target_file"
-            ;;
-        scripts)
-            [[ "$changed_count" -gt 0 ]] &&
-            ! script_has_unreplaced_command_placeholder "$TARGET_DIR/scripts/check_lint.sh" '<lint-command>' &&
-            ! script_has_unreplaced_command_placeholder "$TARGET_DIR/scripts/check_tests.sh" '<test-command>'
             ;;
         audit)
             [[ -s "$REPORT_FILE" ]]
@@ -773,11 +599,6 @@ run_edit_step() {
 
     ensure_state_dirs
 
-    if [[ "$RESUME" == true && -f "$(step_file "$step_id")" ]]; then
-        warn "  → 跳过 ${title}（已完成）"
-        return 0
-    fi
-
     for path in "${files[@]}"; do
         before_states+=("$(capture_fingerprint "$path")")
     done
@@ -790,9 +611,7 @@ run_edit_step() {
         error "步骤失败：${title}"
         error "日志：$log_file"
         tail -n 20 "$log_file" || true
-        mark_step_failed "$step_id" "command_failed"
-        print_resume_hint
-        exit 1
+        return 1
     fi
 
     for index in "${!files[@]}"; do
@@ -806,38 +625,27 @@ run_edit_step() {
         error "步骤未通过结果校验：${title}"
         error "CLI 已成功返回，但目标文件没有按预期落盘。"
         error "日志：$log_file"
-        mark_step_failed "$step_id" "validation_failed"
-        print_resume_hint
-        exit 1
+        if [[ "$step_id" == "single_call" ]]; then
+            return 11
+        fi
+        return 1
     fi
-
-    mark_step_done "$step_id"
 }
 
 run_audit_step() {
-    local step_id="audit"
     local title="最终扫描并生成人工补充清单"
 
     ensure_state_dirs
-
-    if [[ "$RESUME" == true && -f "$(step_file "$step_id")" && -s "$REPORT_FILE" ]]; then
-        warn "  → 跳过 ${title}（已完成）"
-        return 0
-    fi
 
     info "  → ${title}"
 
     generate_audit_report >"$REPORT_FILE"
 
-    if ! validate_edit_step "$step_id" 1 "$REPORT_FILE"; then
+    if ! validate_edit_step "audit" 1 "$REPORT_FILE"; then
         error "步骤未通过结果校验：${title}"
         error "报告文件为空：$REPORT_FILE"
-        mark_step_failed "$step_id" "validation_failed"
-        print_resume_hint
         exit 1
     fi
-
-    mark_step_done "$step_id"
 }
 
 run_docs_review_step() {
@@ -854,11 +662,6 @@ run_docs_review_step() {
     fi
 
     ensure_state_dirs
-
-    if [[ "$RESUME" == true && -f "$(step_file "$step_id")" && -s "$DOCS_REVIEW_FILE" ]]; then
-        warn "  → 跳过 ${title}（已完成）"
-        return 0
-    fi
 
     for path in "${MANAGED_FILES[@]}"; do
         review_scope+=("$TARGET_DIR/$path")
@@ -877,8 +680,6 @@ run_docs_review_step() {
         error "步骤失败：${title}"
         error "日志：$LOG_DIR/${step_id}.log"
         tail -n 20 "$LOG_DIR/${step_id}.log" || true
-        mark_step_failed "$step_id" "command_failed"
-        print_resume_hint
         exit 1
     fi
 
@@ -888,8 +689,6 @@ run_docs_review_step() {
             error "步骤未通过结果校验：${title}"
             error "Docs review 是只读步骤，但检测到生成文件被修改。"
             error "日志：$LOG_DIR/${step_id}.log"
-            mark_step_failed "$step_id" "readonly_violation"
-            print_resume_hint
             exit 1
         fi
     done
@@ -897,53 +696,82 @@ run_docs_review_step() {
     if ! validate_edit_step "$step_id" 1 "$DOCS_REVIEW_FILE"; then
         error "步骤未通过结果校验：${title}"
         error "报告文件为空或缺少预期标题：$DOCS_REVIEW_FILE"
-        mark_step_failed "$step_id" "validation_failed"
-        print_resume_hint
         exit 1
     fi
-
-    mark_step_done "$step_id"
 }
 
 copy_template_skeleton() {
-    local step_id="copy_skeleton"
-
-    if [[ "$RESUME" == true && -f "$(step_file "$step_id")" ]]; then
-        warn "[1/2] 跳过模板骨架复制（已完成）"
-        return
-    fi
-
     info "[1/2] 复制模板骨架到 ${TARGET_DIR}"
     check_existing_managed_files
     ensure_state_dirs
 
-    copy_managed_file "AGENTS.md"
+    # ── 直接从 scaffold 复制，无需 Agent ──────────────────────────
+    mkdir -p "$TARGET_DIR/docs/workflow"
+    copy_managed_file "docs/stage.lock"
+    copy_managed_file "docs/workflow/stage1.md"
+    copy_managed_file "docs/workflow/stage2.md"
+    copy_managed_file "docs/workflow/stage3.md"
+    copy_managed_file "docs/workflow/stage4.md"
+    copy_managed_file "docs/workflow/stage5.md"
+    copy_managed_file "docs/workflow/stage6.md"
+
+    # 长期记忆文件：初始为空模板，由 Stage 5 逐步积累
+    copy_managed_file "docs/wisdom.md"
+    copy_managed_file "docs/antipatterns.md"
+
+    # 运行时状态文件：固定初始状态
     mkdir -p "$TARGET_DIR/docs/plan/archive"
-    copy_managed_file "docs/workflow.md"
+    copy_managed_file "docs/blockers.md"
+    copy_managed_file "docs/plan/current.md"
+    copy_managed_file "docs/plan/archive/README.md"
+    mkdir -p "$TARGET_DIR/issue_test"
+    copy_managed_file "issue_test/README.md"
+
+    # 脚本：Harness 工具，内容固定，直接复制
+    mkdir -p "$TARGET_DIR/scripts"
+    copy_managed_file "scripts/build_context.py"
+    copy_managed_file "scripts/run_issue_tests.sh"
+
+    # ── 需要 Agent 填充的模板文件 ──────────────────────────────────
+    # 以下文件以空白模板复制，init.sh 后续步骤会调用 Agent 填充。
+    # 内容依赖目标仓库的代码事实，不能直接复制 scaffold 内容。
     copy_managed_file "docs/overview.md"
     copy_managed_file "docs/architecture.md"
     copy_managed_file "docs/conventions.md"
-    copy_managed_file "docs/decisions.md"
     copy_managed_file "docs/quality.md"
     copy_managed_file "docs/security.md"
     copy_managed_file "docs/progress.md"
-    copy_managed_file "docs/blockers.md"
     copy_managed_file "docs/plan/backlog.md"
-    copy_managed_file "docs/plan/current.md"
-    copy_managed_file "docs/plan/archive/README.md"
 
-    mkdir -p "$TARGET_DIR/scripts"
-    copy_managed_file "scripts/check_lint.sh"
-    copy_managed_file "scripts/check_tests.sh"
-    copy_managed_file "scripts/check_quality.sh"
+    # ── decisions.md：D-001 内容固定，sed 填入日期和背景，无需 Agent ──
+    copy_managed_file "docs/decisions.md"
+    local today
+    today="$(date '+%Y-%m-%d')"
+    local d001_background=""
+    if [[ "$INIT_MODE" == "greenfield" ]]; then
+        d001_background="项目需要建立结构化的 agent 工作流文档体系，以支持 AI agent 自主开发。"
+    else
+        d001_background="该仓库在已有代码和实验资产的基础上接入 Agent Workflow Template，需要先把当前事实沉淀为可维护文档，再逐步收敛到统一流程。"
+    fi
+    sed -i.bak \
+        -e "s/__INIT_DATE__/${today}/" \
+        -e "s|__INIT_BACKGROUND__|${d001_background}|" \
+        "$TARGET_DIR/docs/decisions.md"
+    rm -f "$TARGET_DIR/docs/decisions.md.bak"
+
     chmod +x "$TARGET_DIR/scripts/"*.sh
-
-    mark_step_done "$step_id"
     info "模板骨架已复制。"
+}
+
+copy_post_fill_scaffold_files() {
+    # AGENTS.md 会影响 codex 的仓库级指令解析。
+    # 初始化自动填充期间先不复制，避免 codex 偏离 bootstrap prompt。
+    copy_managed_file "AGENTS.md"
 }
 
 overview_prompt() {
     mode_intro_prompt
+    bootstrap_edit_guard_prompt
     cat <<'PROMPT'
 分析当前代码库，填充 docs/overview.md。不要修改任何其他文件。
 
@@ -982,6 +810,7 @@ PROMPT
 
 architecture_prompt() {
     mode_intro_prompt
+    bootstrap_edit_guard_prompt
     cat <<'PROMPT'
 分析当前代码库的结构和依赖关系，填充 docs/architecture.md。不要修改任何其他文件。
 
@@ -1015,7 +844,7 @@ architecture_prompt() {
 - 静态检查工具：写出实际使用的 lint 工具名称和版本
 - 规则文件位置：写出 lint 配置文件的路径
 - CI 校验命令：写出 CI 中实际运行 lint 的命令
-- 如果项目没有 lint 或 CI，明确写"当前未配置"
+- 如果项目没有 lint 或 CI，明确写"当前未配置（手动执行）"，不要写成已有机械护栏
 
 ## 规则
 - 只收录被工具机械执行的结构性约束。风格性规则不写在这里
@@ -1026,6 +855,7 @@ PROMPT
 
 conventions_prompt() {
     mode_intro_prompt
+    bootstrap_edit_guard_prompt
     cat <<'PROMPT'
 分析当前代码库的代码风格和 git 习惯，填充 docs/conventions.md。不要修改任何其他文件。
 
@@ -1071,51 +901,46 @@ PROMPT
 
 quality_prompt() {
     mode_intro_prompt
+    bootstrap_edit_guard_prompt
     cat <<'PROMPT'
 分析当前代码库的测试设置，填充 docs/quality.md。不要修改任何其他文件。
 
 ## 分析步骤
 
-1. 查找测试目录：常见位置有 tests/、test/、__tests__/、spec/、*_test.go 等
-2. 打开 1-2 个测试文件，确认使用的测试框架
-3. 查找测试配置文件（jest.config、pytest.ini、vitest.config 等）
-4. 查找覆盖率配置（.nycrc、coverage 配置段等）
-5. 查找包管理文件中的 test scripts（如 package.json 的 scripts.test）
-6. 检查 CI 配置中的测试命令
+1. 查找仓库已有测试目录：常见位置有 tests/、test/、__tests__/、spec/、*_test.go 等
+2. 打开 1-2 个测试文件，确认是否存在原生测试框架
+3. 查找测试/静态检查配置文件（如 jest.config、pytest.ini、vitest.config、eslint 配置等）
+4. 查找包管理文件中的 test/lint scripts（如 package.json 的 scripts.test）
+5. 检查 CI 配置中的测试或静态检查命令
 
 ## 填写要求
 
-打开 docs/quality.md，只修改以下"待填写"区域，Definition of Done 和失败处理流程保持不动：
+打开 docs/quality.md，只修改以下"待填写"区域，Definition of Done、issue_test 机制、失败处理流程和维护规则保持不动：
 
-**测试栈**：
-- 单元测试框架：写出实际使用的框架名称和版本
-- 集成测试框架：如有，写出；如没有，写"当前未配置"
-- Mock 工具：如有，写出
-- 覆盖率工具：如有，写出
+**项目原生检查**：
+- 单元/集成测试框架：写出仓库实际使用的原生测试框架；如没有，写"当前未配置"
+- 静态检查工具：写出仓库实际使用的 lint/type check/static analysis；如没有，写"当前未配置"
+- 其他交付前命令：写出仓库里确实存在且建议交付前运行的命令；如没有，写"当前未配置"
 
-**测试目录**：
-- 替换模板中的示例路径为项目实际的测试目录
-- 如果测试文件和源码放在一起（如 Go 或 colocated tests），说明这种模式
-
-**测试命令**：
-- 替换模板中的 <command> 为实际可执行的命令
-- 全量测试命令
-- 仅单元测试命令（如果能区分）
-- 覆盖率命令（如果有）
-- 如果仓库当前没有自动化测试框架，至少写出一个可复现的 sanity check 命令或脚本，并明确其用途
-- 确保命令可以直接复制粘贴到终端执行
+**常用验证命令**：
+- 保留前两条 `scripts/run_issue_tests.sh` 命令不变
+- 仅替换最后一个 `<command>` 占位符
+- 若仓库存在额外的项目原生检查，写出一个最有代表性的实际命令
+- 若仓库当前没有额外的项目原生检查，写 `当前未配置`
 
 ## 规则
 - "Definition of Done"部分不要修改
+- "issue_test 机制（固定）"部分不要修改
 - "失败处理流程"部分不要修改
 - "维护规则"部分不要修改
-- 若仓库尚未建立统一 lint/test/coverage 体系，必须明确写出“当前未配置”或等价事实描述，不要把理想状态写成既有能力
+- 若仓库尚未建立统一原生测试/静态检查体系，必须明确写出“当前未配置”或等价事实描述，不要把理想状态写成既有能力
 - 无法确认的信息保留"（待填写）"
 PROMPT
 }
 
 security_prompt() {
     mode_intro_prompt
+    bootstrap_edit_guard_prompt
     cat <<'PROMPT'
 分析当前代码库的安全相关配置，填充 docs/security.md。不要修改任何其他文件。
 
@@ -1155,6 +980,7 @@ PROMPT
 
 progress_prompt() {
     mode_intro_prompt
+    bootstrap_edit_guard_prompt
     cat <<'PROMPT'
 分析当前代码库的完成状态，填充 docs/progress.md。不要修改任何其他文件。
 
@@ -1196,6 +1022,7 @@ PROMPT
 
 backlog_prompt() {
     mode_intro_prompt
+    bootstrap_edit_guard_prompt
     cat <<'PROMPT'
 分析当前代码库中的待办事项，填充 docs/plan/backlog.md。不要修改任何其他文件。
 
@@ -1232,63 +1059,6 @@ backlog_prompt() {
 PROMPT
 }
 
-decisions_prompt() {
-    mode_intro_prompt
-    cat <<'PROMPT'
-在 docs/decisions.md 的"## 决策记录"区域追加第一条决策。不要修改任何其他文件。不要修改 decisions.md 中"决策记录"之前的任何内容。
-
-<instructions>
-1. 只在"## 决策记录"下方追加内容。
-2. 不要修改"维护规则"、"记录模板"、"当前有效决策摘要"等区域。
-3. 将下方 <content-to-write> 中的 Markdown 视为要写入文件的正文，不是额外说明文字。
-</instructions>
-
-<content-to-write>
-PROMPT
-    decision_record_markdown
-    cat <<'PROMPT'
-</content-to-write>
-PROMPT
-}
-
-scripts_prompt() {
-    mode_intro_prompt
-    cat <<'PROMPT'
-分析当前代码库使用的 lint 工具和测试框架，更新 scripts/check_lint.sh 和 scripts/check_tests.sh。不要修改任何其他文件。
-
-## 分析步骤
-
-1. 查找 lint 工具：
-   - 检查包管理文件中的 lint 相关依赖和 scripts
-   - 查找 lint 配置文件
-   - 检查 CI 配置中的 lint 命令
-   - 检查 Makefile 或 Taskfile 中的 lint target
-
-2. 查找测试命令：
-   - 检查包管理文件中的 test scripts
-   - 查找测试配置文件
-   - 检查 CI 配置中的测试命令
-   - 检查 Makefile 或 Taskfile 中的 test target
-
-## 填写要求
-
-**scripts/check_lint.sh**：
-- 将文件中的 <lint-command> 替换为实际的 lint 命令
-- 如果项目有多个 lint 工具（如 eslint + prettier），依次运行
-- 如果项目没有 lint 工具，将 <lint-command> 替换为 `echo "WARN: No lint tool configured"`
-
-**scripts/check_tests.sh**：
-- 将文件中的 <test-command> 替换为实际的测试命令
-- 如果项目没有测试，将 <test-command> 替换为 `echo "WARN: No test framework configured"`
-
-## 规则
-- 确保替换后的命令可以直接在项目根目录执行
-- 不要修改脚本的其他结构（echo、set -euo pipefail 等保持不变）
-- 不要修改 scripts/check_quality.sh（它只是组合调用另外两个脚本）
-- 对存量仓库，允许保留 fallback warning，但不要伪造并不存在的 lint/test 命令
-PROMPT
-}
-
 audit_prompt() {
     cat <<PROMPT
 扫描当前仓库中由 Agent Workflow Template 初始化的文档，输出一个 Markdown 清单，列出仍需要人类手动补充或确认的内容。不要修改任何文件。
@@ -1305,8 +1075,6 @@ audit_prompt() {
 8. docs/progress.md
 9. docs/plan/backlog.md
 10. docs/plan/current.md
-11. scripts/check_lint.sh
-12. scripts/check_tests.sh
 
 ## 输出要求
 
@@ -1339,9 +1107,7 @@ docs_review_prompt() {
 
 这是只读任务。不要修改仓库中的任何文件，不要创建文件，不要运行会写文件的命令。只读取仓库和文档，然后把复核结论输出到 stdout。
 
-请重点检查以下对象：
-- AGENTS.md
-- docs/workflow.md
+请重点检查以下对象（Agent 填充的文档）：
 - docs/overview.md
 - docs/architecture.md
 - docs/conventions.md
@@ -1349,12 +1115,17 @@ docs_review_prompt() {
 - docs/quality.md
 - docs/security.md
 - docs/progress.md
-- docs/blockers.md
 - docs/plan/backlog.md
-- docs/plan/current.md
-- scripts/check_lint.sh
-- scripts/check_tests.sh
-- scripts/check_quality.sh
+
+以下文件由初始化脚本直接复制，无需检查内容正确性，只需确认文件存在：
+- AGENTS.md
+- docs/stage.lock
+- docs/workflow/stage1.md ~ stage6.md
+- docs/wisdom.md
+- docs/antipatterns.md
+- issue_test/README.md
+- scripts/build_context.py
+- scripts/run_issue_tests.sh
 
 请优先寻找这些问题：
 1. 文档与代码事实不一致
@@ -1392,10 +1163,11 @@ PROMPT
 
 single_call_prompt() {
     mode_intro_prompt
+    bootstrap_edit_guard_prompt
     cat <<'PROMPT'
 你正在为一个刚初始化 Agent Workflow Template 的仓库执行一次“初始化 bootstrap”任务。
 
-这是一次特殊初始化操作，本条 prompt 的要求优先于仓库内尚未填充完成的 `docs/workflow.md`、`docs/plan/current.md` 等模板流程文件。不要因为模板中的进行中状态、空白计划或流程冲突而停止、提问或等待确认。不要输出方案后停止，直接完成文件修改。
+这是一次特殊初始化操作，本条 prompt 的要求优先于仓库内尚未填充完成的 `docs/workflow/stage*.md`、`docs/plan/current.md` 等模板流程文件。不要因为模板中的进行中状态、空白计划或流程冲突而停止、提问或等待确认。不要输出方案后停止，直接完成文件修改。
 
 只允许修改以下文件：
 - `docs/overview.md`
@@ -1405,9 +1177,17 @@ single_call_prompt() {
 - `docs/security.md`
 - `docs/progress.md`
 - `docs/plan/backlog.md`
-- `docs/decisions.md`
-- `scripts/check_lint.sh`
-- `scripts/check_tests.sh`
+
+不要修改以下文件（已由初始化脚本直接处理，无需 AI）：
+- `AGENTS.md`
+- `docs/stage.lock`
+- `docs/workflow/stage*.md`
+- `docs/wisdom.md`
+- `docs/antipatterns.md`
+- `docs/decisions.md`（D-001 已由 init.sh 直接写入）
+- `issue_test/README.md`
+- `scripts/build_context.py`
+- `scripts/run_issue_tests.sh`
 
 不要修改任何其他文件。
 
@@ -1422,12 +1202,10 @@ single_call_prompt() {
 5. 填充 `docs/security.md`
 6. 填充 `docs/progress.md`
 7. 填充 `docs/plan/backlog.md`
-8. 在 `docs/decisions.md` 的“## 决策记录”区域追加第一条初始化决策
-9. 更新 `scripts/check_lint.sh` 和 `scripts/check_tests.sh`
 
 ## 分析要求
 
-- 先检查根目录结构、README、包管理文件、主代码目录、测试目录、CI/脚本配置、lint 配置、git 历史和分支命名
+- 先检查根目录结构、README、包管理文件、主代码目录、测试目录、CI/脚本配置、git 历史和分支命名
 - 只基于代码库中能确认的事实填写，不要编造信息
 - 无法可靠确认的信息保留“（待填写）”或按模板中的保守表达处理
 - 对 adopt 模式，文档应首先陈述当前事实，不要把理想治理状态写成既有事实
@@ -1454,9 +1232,9 @@ single_call_prompt() {
 - 保持“维护规则”不变
 
 ### `docs/quality.md`
-- 只修改“测试栈”“测试目录”“测试命令”等待填写区域
-- 不要修改 Definition of Done、失败处理流程、维护规则
-- 如果仓库当前没有自动化测试框架，测试命令区域至少保留一个可复现的 sanity check 命令或脚本说明
+- 只修改“项目原生检查（待填写）”和“常用验证命令”中的最后一个 `<command>` 占位符
+- 不要修改 Definition of Done、issue_test 机制、失败处理流程、维护规则
+- 如果仓库当前没有额外的项目原生检查，明确写 `当前未配置`
 
 ### `docs/security.md`
 - 只从 `.env.example`、代码中的环境变量引用、认证代码、CI secrets 引用等提取信息
@@ -1472,26 +1250,6 @@ single_call_prompt() {
 - 包含来源信息
 - 若无可靠线索则保留“（待填写）”
 
-### `docs/decisions.md`
-- 只在“## 决策记录”区域追加
-- 将以下内容作为要写入的 Markdown 正文：
-
-<content-to-write>
-PROMPT
-    decision_record_markdown
-    cat <<'PROMPT'
-</content-to-write>
-
-### `scripts/check_lint.sh`
-- 用实际 lint 命令替换 `<lint-command>`
-- 若没有 lint 工具，用 `echo "WARN: No lint tool configured"`
-- 其他结构保持不变
-
-### `scripts/check_tests.sh`
-- 用实际测试命令替换 `<test-command>`
-- 若没有测试框架，用 `echo "WARN: No test framework configured"`
-- 其他结构保持不变
-
 ## 输出要求
 
 - 直接完成文件修改
@@ -1501,19 +1259,15 @@ PROMPT
 }
 
 generate_audit_report() {
+    # 只审计 Agent 填充的文件，Harness 层文件（直接复制）不在审计范围
     local files=(
-        "AGENTS.md"
         "docs/overview.md"
         "docs/architecture.md"
         "docs/conventions.md"
-        "docs/decisions.md"
         "docs/quality.md"
         "docs/security.md"
         "docs/progress.md"
         "docs/plan/backlog.md"
-        "docs/plan/current.md"
-        "scripts/check_lint.sh"
-        "scripts/check_tests.sh"
     )
     local file=""
     local relative_path=""
@@ -1544,20 +1298,8 @@ generate_audit_report() {
                 findings+=("仍包含占位内容：${line}")
             done < <(grep -nE '（待填写）|YYYY-MM-DD|Not Started / In Progress / Done|（示例：' "$TARGET_DIR/$relative_path" || true)
 
-            if script_has_unreplaced_command_placeholder "$TARGET_DIR/$relative_path" '<lint-command>'; then
-                findings+=("仍包含 `<lint-command>` 占位符")
-            fi
-
-            if script_has_unreplaced_command_placeholder "$TARGET_DIR/$relative_path" '<test-command>'; then
-                findings+=("仍包含 `<test-command>` 占位符")
-            fi
-
-            if grep -n 'WARN: No lint tool configured' "$TARGET_DIR/$relative_path" >/dev/null 2>&1; then
-                findings+=("lint 命令是 fallback，需要人工确认")
-            fi
-
-            if grep -n 'WARN: No test framework configured' "$TARGET_DIR/$relative_path" >/dev/null 2>&1; then
-                findings+=("test 命令是 fallback，需要人工确认")
+            if grep -n '<command>' "$TARGET_DIR/$relative_path" >/dev/null 2>&1; then
+                findings+=("仍包含 `<command>` 占位符")
             fi
 
             if grep -n '当前未配置' "$TARGET_DIR/$relative_path" >/dev/null 2>&1; then
@@ -1580,25 +1322,36 @@ generate_audit_report() {
     echo "## 风险提示"
     echo "- Git 历史、分支命名和 PR 规范经常无法仅从本地仓库完整推断，相关文档需人工复核。"
     echo "- 安全边界、受保护路径和认证模式可能隐藏在部署环境或私有配置中，本地扫描只能给出保守结论。"
-    echo "- 若仓库没有显式 lint/test 配置，自动生成的脚本可能只是 fallback，需要人工替换为真实命令。"
+    echo '- 若仓库没有显式原生测试/静态检查配置，quality.md 中可能仍保留“当前未配置”或 `<command>` 占位，需要人工确认。'
     echo "- 业务范围与 Out of Scope 往往需要产品/项目背景信息，代码扫描只能提取当前可见边界。"
 }
 
 run_single_call_sequence() {
+    local step_status=0
+
     info "[2/2] 调用 ${CLI_TOOL} 单次完成全部填充（$(mode_label) 模式，默认）..."
     echo ""
 
-    run_edit_step "single_call" "单次填充全部文档与检查脚本" \
+    if run_edit_step "single_call" "单次填充全部文档" \
         "$TARGET_DIR/docs/overview.md" \
         "$TARGET_DIR/docs/architecture.md" \
         "$TARGET_DIR/docs/conventions.md" \
         "$TARGET_DIR/docs/quality.md" \
         "$TARGET_DIR/docs/security.md" \
         "$TARGET_DIR/docs/progress.md" \
-        "$TARGET_DIR/docs/plan/backlog.md" \
-        "$TARGET_DIR/docs/decisions.md" \
-        "$TARGET_DIR/scripts/check_lint.sh" \
-        "$TARGET_DIR/scripts/check_tests.sh" -- <<<"$(single_call_prompt)"
+        "$TARGET_DIR/docs/plan/backlog.md" -- <<<"$(single_call_prompt)"; then
+        :
+    else
+        step_status=$?
+        if [[ "$step_status" -eq 11 ]] && [[ "$(detect_cli_kind)" == "codex" ]]; then
+            warn "单次填充未成功落盘；对 codex 自动回退到 ultra 逐文件模式。"
+            ULTRA=true
+            SINGLE_CALL=false
+            run_fill_sequence
+            return
+        fi
+        exit "$step_status"
+    fi
 
     run_docs_review_step
     run_audit_step
@@ -1624,11 +1377,6 @@ run_fill_sequence() {
         "$TARGET_DIR/docs/progress.md" -- <<<"$(progress_prompt)"
     run_edit_step "backlog" "填充 docs/plan/backlog.md" \
         "$TARGET_DIR/docs/plan/backlog.md" -- <<<"$(backlog_prompt)"
-    run_edit_step "decisions" "填充 docs/decisions.md" \
-        "$TARGET_DIR/docs/decisions.md" -- <<<"$(decisions_prompt)"
-    run_edit_step "scripts" "配置 scripts/check_lint.sh 和 check_tests.sh" \
-        "$TARGET_DIR/scripts/check_lint.sh" \
-        "$TARGET_DIR/scripts/check_tests.sh" -- <<<"$(scripts_prompt)"
 
     run_docs_review_step
     run_audit_step
@@ -1669,10 +1417,6 @@ while [[ $# -gt 0 ]]; do
         --skip-fill)
             SKIP_FILL=true
             SKIP_FILL_EXPLICIT=true
-            shift
-            ;;
-        --resume)
-            RESUME=true
             shift
             ;;
         --adopt)
@@ -1732,13 +1476,19 @@ fi
 
 init_state_paths
 ensure_scaffold_is_valid
-ensure_resume_mode_is_valid
-
-if [[ "$RESUME" == true ]]; then
-    load_saved_config
-fi
 
 run_interactive_setup
+
+if [[ "$SKIP_FILL" == false ]] && [[ "$(detect_cli_kind)" == "codex" ]]; then
+    if [[ "$EXECUTION_MODE_EXPLICIT" != true ]]; then
+        ULTRA=true
+        SINGLE_CALL=false
+    fi
+    if [[ "$DOCS_REVIEW_EXPLICIT" != true ]]; then
+        DOCS_REVIEW_ENABLED=false
+        warn "检测到 codex；默认跳过独立文档复核（可用 --docs-review 显式启用）。"
+    fi
+fi
 
 if [[ "$ULTRA" == true ]]; then
     SINGLE_CALL=false
@@ -1752,18 +1502,26 @@ if [[ "$SKIP_FILL" == false ]] && ! command -v "$CLI_TOOL" >/dev/null 2>&1; then
     exit 1
 fi
 
-save_run_config
-
 if git -C "$TARGET_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    TARGET_IS_GIT_REPO=true
     info "检测到目标目录是 Git 仓库。"
 else
-    warn "警告：目标目录不是 Git 仓库。后续 AI prompt 中若依赖 git log / git branch，结果可能退化。"
+    error "错误：目标目录不是 Git 仓库。"
+    echo "Agent Workflow 的核心机制（stage.lock commit、branch 管理、PR 流程）强依赖 Git。"
+    echo "请先在目标目录执行 git init && git commit，再重新运行 init.sh。"
+    exit 1
 fi
 
+if ! python3 -c "import yaml" >/dev/null 2>&1; then
+    error "错误：未找到 PyYAML（scripts/build_context.py 的必须依赖）。"
+    echo "请先执行：python3 -m pip install pyyaml"
+    exit 1
+fi
+
+reset_run_artifacts
 copy_template_skeleton
 
 if [[ "$SKIP_FILL" == true ]]; then
+    copy_post_fill_scaffold_files
     warn "已跳过自动填充（--skip-fill）。"
 else
     if [[ "$ULTRA" == true ]]; then
@@ -1771,6 +1529,7 @@ else
     else
         run_single_call_sequence
     fi
+    copy_post_fill_scaffold_files
 fi
 
 echo ""
@@ -1793,8 +1552,17 @@ if [[ -s "$DOCS_REVIEW_FILE" ]]; then
     echo ""
 fi
 
-echo "下一步："
-echo "  1. 检查 docs/ 下的文档，补充标记为（待填写）的内容"
-echo "  2. 运行 ./scripts/check_quality.sh 确认脚本可以正常执行"
-echo "  3. 在 docs/plan/backlog.md 中补充你的第一批 issue"
-echo "  4. 启动 agent：${CLI_TOOL} \"读 AGENTS.md，然后开始工作。\""
+if [[ "$SKIP_FILL" == true ]]; then
+    echo "下一步（--skip-fill 模式，文档仍包含模板占位，需人工补充）："
+    echo "  1. 填充 docs/ 下所有标记为（待填写）的文档"
+    echo "  2. 检查 issue_test/README.md 与 scripts/run_issue_tests.sh，确认符合你的仓库习惯"
+    echo "  3. 在 docs/plan/backlog.md 中补充你的第一批 issue"
+    echo "  4. 启动 agent：${CLI_TOOL} \"读 AGENTS.md，然后开始工作。\""
+else
+    echo "下一步："
+    echo "  1. 检查 docs/ 下的文档，补充仍需人工确认的内容"
+    echo "  2. 开始第一个 issue 时，先创建 issue_test/<issue_id>.sh，再实现代码"
+    echo "  3. 完成实现后，运行 bash scripts/run_issue_tests.sh 确认所有历史 issue test 都通过"
+    echo "  4. 在 docs/plan/backlog.md 中补充你的第一批 issue"
+    echo "  5. 启动 agent：${CLI_TOOL} \"读 AGENTS.md，然后开始工作。\""
+fi

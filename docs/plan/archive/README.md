@@ -10,5 +10,10 @@
 ## 归档流程
 
 1. 复制 `docs/plan/current.md` 内容到新归档文件。
-2. 在归档文件中补充 PR 链接和最终结论。
+2. 在归档文件中补充以下内容：
+   - PR 链接，或“本地交付 + 人工 handoff”说明
+   - 最终结论
+   - 对应测试脚本路径（`issue_test/<issue_id>.sh`）
+   - 本地交付 commit hash
 3. 清空并重置 `docs/plan/current.md`。
+4. 不要移动或删除 `issue_test/<issue_id>.sh`；历史 issue test 必须继续保留用于后续回归。
