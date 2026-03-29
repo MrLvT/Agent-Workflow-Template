@@ -83,6 +83,28 @@ bash scripts/run_issue_tests.sh
 bash scripts/run_issue_tests.sh --exclude issue_test/<issue_id>.sh
 ```
 
+### 2.5 开发一个新任务时，先写 `backlog.md`
+
+这个模板里，“要开发什么”的正式入口不是直接改代码，也不是先写 `current.md`，而是先把任务写进 `docs/plan/backlog.md`。
+
+推荐顺序：
+
+1. 在 `docs/plan/backlog.md` 里新增一个 `- [ ]` 条目
+2. 启动 agent
+3. Stage 2 从 backlog 里选择一个条目
+4. Stage 2 生成 `issue_id`
+5. Stage 2 创建 `issue_test/<issue_id>.sh`
+6. Stage 2 把实施步骤写入 `docs/plan/current.md`
+7. Stage 3 开始实现，Stage 4 完成后把 backlog 条目标记为 `- [x]`
+
+角色分工是：
+
+- `docs/plan/backlog.md`：定义“接下来要做什么”
+- `docs/plan/current.md`：定义“当前这个 issue 怎么一步步做”
+- `issue_test/<issue_id>.sh`：定义“这个 issue 做完后怎么验收”
+
+也就是说，`backlog.md` 是开发入口，`current.md` 是执行中计划，`issue_test` 是验收脚本。
+
 ### 3. `init.sh` 实际做了什么
 
 `init.sh` 不是简单复制文件。它把模板初始化分成四类动作：
@@ -214,6 +236,7 @@ flowchart LR
 - 不允许在同一次 run 里连续领取多个 backlog issue。
 - 任何 Stage 失败都要写 `docs/blockers.md` 并停止。
 - 每次 `stage.lock` 更新都要求单独 git commit。
+- 新任务必须先进入 `docs/plan/backlog.md`，再由 Stage 2 转成 `current.md` 和 `issue_test/<issue_id>.sh`。
 
 ## Stage 输入模型
 
