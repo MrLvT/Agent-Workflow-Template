@@ -56,6 +56,21 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
+# ── i18n: detect locale, default to English ─────────────────
+_detect_locale() {
+    local lang="${LANG:-${LC_ALL:-${LC_MESSAGES:-en}}}"
+    case "$lang" in
+        zh*) echo "zh" ;;
+        *)   echo "en" ;;
+    esac
+}
+LOCALE="$(_detect_locale)"
+
+# m "English text" "中文文本"  — picks the right string by locale
+m() {
+    if [[ "$LOCALE" == "zh" ]]; then printf '%s' "$2"; else printf '%s' "$1"; fi
+}
+
 MANAGED_FILES=(
     "AGENTS.md"
     "docs/stage.lock"
@@ -85,24 +100,45 @@ MANAGED_FILES=(
 )
 
 usage() {
-    cat <<EOF
-用法 / Usage:
+    if [[ "$LOCALE" == "zh" ]]; then
+        cat <<EOF
+用法：
   cd /path/to/your-repo
   bash /path/to/Agent-Workflow-Template/init.sh [--cli <claude|codex>] [--model <name>] [--reasoning-effort <level>] [--skip-fill] [--greenfield] [--ultra] [--no-docs-review] [--lang <zh|en>] [--non-interactive]
 
-选项 / Options:
-  --cli <name>    指定 CLI 工具（默认：claude）/ Specify CLI tool (default: claude)
-  --model <name>  指定 AI 模型（默认：gpt-5.4）/ Specify AI model (default: gpt-5.4)
+选项：
+  --cli <name>    指定 CLI 工具（默认：claude）
+  --model <name>  指定 AI 模型（默认：自动检测）
   --reasoning-effort <level>
-                   指定推理强度（默认：xhigh）/ Specify reasoning effort (default: xhigh)
-  --skip-fill        只复制骨架，不调用 AI 填充文档 / Copy skeleton only, skip AI fill
-  --greenfield       按全新 agent 主导项目初始化 / Initialize for a brand-new project
-  --single-call      兼容别名；默认已经是单次 AI 调用 / Compat alias; single AI call is already the default
-  --ultra            使用逐文件多次 AI 调用完成初始化填充 / Fill per-file using multiple AI calls
-  --no-docs-review   跳过独立 docs review 步骤 / Skip independent docs review step
-  --lang <zh|en>     选择文档语言（默认：zh）/ Choose document language (default: zh)
-  --non-interactive  禁用交互式向导，仅按 flags / 默认值执行 / Disable interactive wizard
+                   指定推理强度（默认：xhigh，仅 codex）
+  --skip-fill        只复制骨架，不调用 AI 填充文档
+  --greenfield       按全新 agent 主导项目初始化（默认是存量仓库 adopt 模式）
+  --single-call      兼容别名；默认已经是单次 AI 调用
+  --ultra            使用逐文件多次 AI 调用完成初始化填充
+  --no-docs-review   跳过独立 docs review 步骤
+  --lang <zh|en>     强制指定界面语言（默认：自动检测）
+  --non-interactive  禁用交互式向导，仅按 flags / 默认值执行
 EOF
+    else
+        cat <<EOF
+Usage:
+  cd /path/to/your-repo
+  bash /path/to/Agent-Workflow-Template/init.sh [--cli <claude|codex>] [--model <name>] [--reasoning-effort <level>] [--skip-fill] [--greenfield] [--ultra] [--no-docs-review] [--lang <zh|en>] [--non-interactive]
+
+Options:
+  --cli <name>    AI CLI tool (default: claude)
+  --model <name>  AI model (default: auto-detected by CLI)
+  --reasoning-effort <level>
+                   Reasoning effort level (default: xhigh, codex only)
+  --skip-fill        Copy skeleton only, skip AI-powered doc filling
+  --greenfield       Initialize as a new agent-driven project (default: adopt existing repo)
+  --single-call      Compatibility alias; single AI call is the default
+  --ultra            Use per-file AI calls for doc filling
+  --no-docs-review   Skip the independent docs review step
+  --lang <zh|en>     Force UI language (default: auto-detect from locale)
+  --non-interactive  Disable interactive wizard, use flags/defaults only
+EOF
+    fi
 }
 
 info() {
@@ -122,13 +158,13 @@ confirm_or_abort() {
 
     if [[ ! -t 0 ]]; then
         error "${message}"
-        error "当前会话不是交互式终端，已停止。"
+        error "$(m "Not an interactive terminal, aborting." "当前会话不是交互式终端，已停止。")"
         exit 1
     fi
 
     read -r -p "${message} (y/N) " reply
     if [[ ! "$reply" =~ ^[Yy]$ ]]; then
-        echo "取消操作。"
+        echo "$(m "Cancelled." "取消操作。")"
         exit 0
     fi
 }
@@ -173,10 +209,10 @@ prompt_lang_choice() {
 prompt_mode_choice() {
     local reply=""
     while true; do
-        echo "请选择初始化模式："
-        echo "  1) adopt (推荐，存量仓库接入)"
-        echo "  2) greenfield (全新 agent 主导项目)"
-        read -r -p "选择 [1]: " reply
+        echo "$(m "Select initialization mode:" "请选择初始化模式：")"
+        echo "  1) adopt $(m "(recommended, existing repo)" "(推荐，存量仓库接入)")"
+        echo "  2) greenfield $(m "(new agent-driven project)" "(全新 agent 主导项目)")"
+        read -r -p "$(m "Choice" "选择") [1]: " reply
         case "${reply:-1}" in
             1)
                 INIT_MODE="adopt"
@@ -187,7 +223,7 @@ prompt_mode_choice() {
                 return
                 ;;
             *)
-                warn "无效选择，请输入 1 或 2。"
+                warn "$(m "Invalid choice, enter 1 or 2." "无效选择，请输入 1 或 2。")"
                 ;;
         esac
     done
@@ -196,7 +232,7 @@ prompt_mode_choice() {
 prompt_fill_choice() {
     local reply=""
     while true; do
-        read -r -p "是否调用 AI 自动填充文档？ (Y/n) " reply
+        read -r -p "$(m "Use AI to auto-fill docs?" "是否调用 AI 自动填充文档？") (Y/n) " reply
         case "${reply:-Y}" in
             Y|y)
                 SKIP_FILL=false
@@ -207,7 +243,7 @@ prompt_fill_choice() {
                 return
                 ;;
             *)
-                warn "无效选择，请输入 y 或 n。"
+                warn "$(m "Invalid choice, enter y or n." "无效选择，请输入 y 或 n。")"
                 ;;
         esac
     done
@@ -219,17 +255,17 @@ prompt_cli_choice() {
     recommended="$(default_cli_tool)"
 
     while true; do
-        echo "请选择 AI CLI："
+        echo "$(m "Select AI CLI:" "请选择 AI CLI：")"
         echo "  1) codex"
         echo "  2) claude"
         if [[ "$recommended" == "codex" ]]; then
-            read -r -p "选择 [1]: " reply
+            read -r -p "$(m "Choice" "选择") [1]: " reply
             reply="${reply:-1}"
         elif [[ "$recommended" == "claude" ]]; then
-            read -r -p "选择 [2]: " reply
+            read -r -p "$(m "Choice" "选择") [2]: " reply
             reply="${reply:-2}"
         else
-            read -r -p "选择 [1]: " reply
+            read -r -p "$(m "Choice" "选择") [1]: " reply
             reply="${reply:-1}"
         fi
 
@@ -243,7 +279,7 @@ prompt_cli_choice() {
                 return
                 ;;
             *)
-                warn "无效选择，请输入 1 或 2。"
+                warn "$(m "Invalid choice, enter 1 or 2." "无效选择，请输入 1 或 2。")"
                 ;;
         esac
     done
@@ -252,10 +288,10 @@ prompt_cli_choice() {
 prompt_execution_mode_choice() {
     local reply=""
     while true; do
-        echo "请选择填充方式："
-        echo "  1) single-call (推荐，单次 AI 调用)"
-        echo "  2) ultra (逐文件多次 AI 调用)"
-        read -r -p "选择 [1]: " reply
+        echo "$(m "Select fill mode:" "请选择填充方式：")"
+        echo "  1) single-call $(m "(recommended, one AI call)" "(推荐，单次 AI 调用)")"
+        echo "  2) ultra $(m "(per-file AI calls)" "(逐文件多次 AI 调用)")"
+        read -r -p "$(m "Choice" "选择") [1]: " reply
         case "${reply:-1}" in
             1)
                 ULTRA=false
@@ -268,7 +304,7 @@ prompt_execution_mode_choice() {
                 return
                 ;;
             *)
-                warn "无效选择，请输入 1 或 2。"
+                warn "$(m "Invalid choice, enter 1 or 2." "无效选择，请输入 1 或 2。")"
                 ;;
         esac
     done
@@ -277,7 +313,7 @@ prompt_execution_mode_choice() {
 prompt_docs_review_choice() {
     local reply=""
     while true; do
-        read -r -p "是否在生成后执行独立 docs review？ (Y/n) " reply
+        read -r -p "$(m "Run independent docs review after generation?" "是否在生成后执行独立 docs review？") (Y/n) " reply
         case "${reply:-Y}" in
             Y|y)
                 DOCS_REVIEW_ENABLED=true
@@ -288,31 +324,31 @@ prompt_docs_review_choice() {
                 return
                 ;;
             *)
-                warn "无效选择，请输入 y 或 n。"
+                warn "$(m "Invalid choice, enter y or n." "无效选择，请输入 y 或 n。")"
                 ;;
         esac
     done
 }
 
-prompt_codex_profile_choice() {
+prompt_model_choice() {
     local reply=""
+    local recommended
+    recommended="$(default_model_for_cli)"
+
     while true; do
-        read -r -p "是否使用推荐的 Codex 配置 gpt-5.4 / xhigh？ (Y/n) " reply
+        read -r -p "$(m "Use recommended model ${recommended}?" "是否使用推荐的模型 ${recommended}？") (Y/n) " reply
         case "${reply:-Y}" in
             Y|y)
-                MODEL="gpt-5.4"
-                REASONING_EFFORT="xhigh"
+                MODEL="$recommended"
                 return
                 ;;
             N|n)
-                read -r -p "请输入 model [${MODEL}]: " reply
+                read -r -p "$(m "Enter model" "请输入 model") [${MODEL}]: " reply
                 MODEL="${reply:-$MODEL}"
-                read -r -p "请输入 reasoning effort [${REASONING_EFFORT}]: " reply
-                REASONING_EFFORT="${reply:-$REASONING_EFFORT}"
                 return
                 ;;
             *)
-                warn "无效选择，请输入 y 或 n。"
+                warn "$(m "Invalid choice, enter y or n." "无效选择，请输入 y 或 n。")"
                 ;;
         esac
     done
@@ -320,18 +356,21 @@ prompt_codex_profile_choice() {
 
 print_configuration_summary() {
     echo ""
-    echo "将使用以下配置 / Configuration:"
-    echo "  - 目标目录 / Target dir: ${TARGET_DIR}"
-    echo "  - 语言 / Language: ${LANG_CHOICE}"
-    echo "  - 模式 / Mode: ${INIT_MODE}"
+    echo "$(m "Configuration:" "将使用以下配置：")"
+    echo "  - $(m "Target dir" "目标目录"): ${TARGET_DIR}"
+    echo "  - $(m "Language" "语言"): ${LANG_CHOICE}"
+    echo "  - $(m "Mode" "模式"): ${INIT_MODE}"
     if [[ "$SKIP_FILL" == true ]]; then
-        echo "  - 自动填充 / Auto-fill: 关闭 (--skip-fill)"
+        echo "  - $(m "Auto-fill: off (--skip-fill)" "自动填充: 关闭 (--skip-fill)")"
     else
         echo "  - CLI: ${CLI_TOOL}"
-        echo "  - 填充方式 / Fill mode: $([[ "$ULTRA" == true ]] && printf 'ultra' || printf 'single-call')"
-        echo "  - docs review: $([[ "$DOCS_REVIEW_ENABLED" == true ]] && printf '开启 / enabled' || printf '关闭 / disabled')"
+        echo "  - $(m "Fill mode" "填充方式"): $([[ "$ULTRA" == true ]] && printf 'ultra' || printf 'single-call')"
+        local _on _off
+        _on="$(m "on" "开启")"
+        _off="$(m "off" "关闭")"
+        echo "  - docs review: $([[ "$DOCS_REVIEW_ENABLED" == true ]] && printf '%s' "$_on" || printf '%s' "$_off")"
+        echo "  - model: ${MODEL}"
         if [[ "$(detect_cli_kind)" == "codex" ]]; then
-            echo "  - model: ${MODEL}"
             echo "  - reasoning: ${REASONING_EFFORT}"
         fi
     fi
@@ -343,7 +382,7 @@ run_interactive_setup() {
         return
     fi
 
-    info "未提供完整参数，进入交互式初始化向导。"
+    info "$(m "Incomplete parameters, entering interactive setup wizard." "未提供完整参数，进入交互式初始化向导。")"
 
     if [[ "$LANG_EXPLICIT" != true ]]; then
         prompt_lang_choice
@@ -371,13 +410,13 @@ run_interactive_setup() {
             prompt_docs_review_choice
         fi
 
-        if [[ "$(detect_cli_kind)" == "codex" ]] && [[ "$MODEL_EXPLICIT" != true && "$REASONING_EFFORT_EXPLICIT" != true ]]; then
-            prompt_codex_profile_choice
+        if [[ "$MODEL_EXPLICIT" != true ]]; then
+            prompt_model_choice
         fi
     fi
 
     print_configuration_summary
-    confirm_or_abort "是否按以上配置开始初始化？"
+    confirm_or_abort "$(m "Proceed with this configuration?" "是否按以上配置开始初始化？")"
 }
 
 init_state_paths() {
@@ -455,11 +494,11 @@ check_existing_managed_files() {
     done
 
     if [[ ${#conflicts[@]} -gt 0 ]]; then
-        warn "检测到目标目录中已存在以下受 init.sh 管理的文件："
+        warn "$(m "The following managed files already exist in the target directory:" "检测到目标目录中已存在以下受 init.sh 管理的文件：")"
         printf '  - %s\n' "${conflicts[@]}"
-        confirm_or_abort "继续将覆盖这些文件，是否继续？"
+        confirm_or_abort "$(m "Continuing will overwrite these files. Continue?" "继续将覆盖这些文件，是否继续？")"
     elif [[ -d "$TARGET_DIR/docs" ]]; then
-        warn "目标目录已存在 docs/ 目录。init.sh 只会写入模板管理的文件，不会清理其他文档。"
+        warn "$(m "Target directory already has a docs/ folder. init.sh will only write managed files, not clean up other docs." "目标目录已存在 docs/ 目录。init.sh 只会写入模板管理的文件，不会清理其他文档。")"
     fi
 }
 
@@ -484,7 +523,7 @@ ensure_scaffold_is_valid() {
     local f=""
     for f in "${required_files[@]}"; do
         if [[ ! -f "$SCAFFOLD_DIR/$f" ]]; then
-            error "缺少初始化骨架文件：$SCAFFOLD_DIR/$f"
+            error "$(m "Missing scaffold file:" "缺少初始化骨架文件：") $SCAFFOLD_DIR/$f"
             exit 1
         fi
     done
@@ -502,6 +541,20 @@ detect_cli_kind() {
             echo "generic"
             ;;
     esac
+}
+
+default_model_for_cli() {
+    case "$(detect_cli_kind)" in
+        codex)  printf 'gpt-5.4\n' ;;
+        claude) printf 'opus\n' ;;
+        *)      printf '%s\n' "$MODEL" ;;
+    esac
+}
+
+apply_cli_defaults() {
+    if [[ "$MODEL_EXPLICIT" != true ]]; then
+        MODEL="$(default_model_for_cli)"
+    fi
 }
 
 mode_label() {
@@ -577,7 +630,13 @@ run_cli_prompt() {
             printf '%s' "$prompt" | "$CLI_TOOL" "${codex_args[@]}"
             ;;
         claude|generic)
-            "$CLI_TOOL" -p "$prompt"
+            local claude_args=(
+                "-p"
+                "--dangerously-skip-permissions"
+                "--model" "$MODEL"
+                "--output-format" "text"
+            )
+            "$CLI_TOOL" "${claude_args[@]}" "$prompt"
             ;;
     esac
 }
@@ -605,7 +664,7 @@ validate_edit_step() {
             ;;
         docs_review)
             [[ -s "$DOCS_REVIEW_FILE" ]] &&
-            grep -q '^# 文档复核报告$' "$DOCS_REVIEW_FILE"
+            grep -qE '^# (文档复核报告|Docs Review Report)$' "$DOCS_REVIEW_FILE"
             ;;
         *)
             [[ "$changed_count" -gt 0 ]] &&
@@ -649,8 +708,8 @@ run_edit_step() {
         cd "$TARGET_DIR"
         run_cli_prompt "$prompt"
     ) >"$log_file" 2>&1; then
-        error "步骤失败：${title}"
-        error "日志：$log_file"
+        error "$(m "Step failed:" "步骤失败：") ${title}"
+        error "$(m "Log:" "日志：") $log_file"
         tail -n 20 "$log_file" || true
         return 1
     fi
@@ -663,9 +722,9 @@ run_edit_step() {
     done
 
     if ! validate_edit_step "$step_id" "$changed_count" "${files[@]}"; then
-        error "步骤未通过结果校验：${title}"
-        error "CLI 已成功返回，但目标文件没有按预期落盘。"
-        error "日志：$log_file"
+        error "$(m "Step failed validation:" "步骤未通过结果校验：") ${title}"
+        error "$(m "CLI returned success but target files were not written as expected." "CLI 已成功返回，但目标文件没有按预期落盘。")"
+        error "$(m "Log:" "日志：") $log_file"
         if [[ "$step_id" == "single_call" ]]; then
             return 11
         fi
@@ -674,7 +733,7 @@ run_edit_step() {
 }
 
 run_audit_step() {
-    local title="最终扫描并生成人工补充清单"
+    local title="$(m "Final scan & generate human follow-up checklist" "最终扫描并生成人工补充清单")"
 
     ensure_state_dirs
 
@@ -683,22 +742,22 @@ run_audit_step() {
     generate_audit_report >"$REPORT_FILE"
 
     if ! validate_edit_step "audit" 1 "$REPORT_FILE"; then
-        error "步骤未通过结果校验：${title}"
-        error "报告文件为空：$REPORT_FILE"
+        error "$(m "Step failed validation:" "步骤未通过结果校验：") ${title}"
+        error "$(m "Report file is empty:" "报告文件为空：") $REPORT_FILE"
         exit 1
     fi
 }
 
 run_docs_review_step() {
     local step_id="docs_review"
-    local title="独立复核生成后的文档"
+    local title="$(m "Independent review of generated docs" "独立复核生成后的文档")"
     local review_scope=()
     local before_states=()
     local after_state=""
     local index=0
 
     if [[ "$DOCS_REVIEW_ENABLED" != true ]]; then
-        warn "  → 跳过 ${title}（已禁用）"
+        warn "  → $(m "Skipping" "跳过") ${title} $(m "(disabled)" "（已禁用）")"
         return 0
     fi
 
@@ -718,8 +777,8 @@ run_docs_review_step() {
         cd "$TARGET_DIR"
         run_cli_prompt "$(docs_review_prompt)"
     ) >"$DOCS_REVIEW_FILE" 2>"$LOG_DIR/${step_id}.log"; then
-        error "步骤失败：${title}"
-        error "日志：$LOG_DIR/${step_id}.log"
+        error "$(m "Step failed:" "步骤失败：") ${title}"
+        error "$(m "Log:" "日志：") $LOG_DIR/${step_id}.log"
         tail -n 20 "$LOG_DIR/${step_id}.log" || true
         exit 1
     fi
@@ -727,22 +786,22 @@ run_docs_review_step() {
     for index in "${!review_scope[@]}"; do
         after_state="$(capture_fingerprint "${review_scope[$index]}")"
         if [[ "$after_state" != "${before_states[$index]}" ]]; then
-            error "步骤未通过结果校验：${title}"
-            error "Docs review 是只读步骤，但检测到生成文件被修改。"
-            error "日志：$LOG_DIR/${step_id}.log"
+            error "$(m "Step failed validation:" "步骤未通过结果校验：") ${title}"
+            error "$(m "Docs review is read-only but generated files were modified." "Docs review 是只读步骤，但检测到生成文件被修改。")"
+            error "$(m "Log:" "日志：") $LOG_DIR/${step_id}.log"
             exit 1
         fi
     done
 
     if ! validate_edit_step "$step_id" 1 "$DOCS_REVIEW_FILE"; then
-        error "步骤未通过结果校验：${title}"
-        error "报告文件为空或缺少预期标题：$DOCS_REVIEW_FILE"
+        error "$(m "Step failed validation:" "步骤未通过结果校验：") ${title}"
+        error "$(m "Report file is empty or missing expected heading:" "报告文件为空或缺少预期标题：") $DOCS_REVIEW_FILE"
         exit 1
     fi
 }
 
 copy_template_skeleton() {
-    info "[1/2] 复制模板骨架到 ${TARGET_DIR}"
+    info "[1/2] $(m "Copying template skeleton to" "复制模板骨架到") ${TARGET_DIR}"
     check_existing_managed_files
     ensure_state_dirs
 
@@ -802,7 +861,7 @@ copy_template_skeleton() {
     rm -f "$TARGET_DIR/docs/decisions.md.bak"
 
     chmod +x "$TARGET_DIR/scripts/"*.sh
-    info "模板骨架已复制。"
+    info "$(m "Template skeleton copied." "模板骨架已复制。")"
 }
 
 copy_post_fill_scaffold_files() {
@@ -1325,35 +1384,35 @@ generate_audit_report() {
     local line=""
     local -a findings=()
 
-    echo "# 初始化后人工补充清单"
+    echo "# $(m "Post-init Human Follow-up Checklist" "初始化后人工补充清单")"
     echo ""
-    echo "## 已完成概览"
-    echo "- 自动初始化已复制模板骨架，并完成文档/脚本状态扫描。"
-    echo "- 本报告由本地规则生成，用于标出仍需人工补充或确认的项目。"
+    echo "## $(m "Completed Overview" "已完成概览")"
+    echo "- $(m "Auto-init copied the template skeleton and scanned doc/script status." "自动初始化已复制模板骨架，并完成文档/脚本状态扫描。")"
+    echo "- $(m "This report is generated by local rules to flag items still needing human input." "本报告由本地规则生成，用于标出仍需人工补充或确认的项目。")"
     echo ""
-    echo "## 仍需人工补充"
+    echo "## $(m "Still Needs Human Input" "仍需人工补充")"
 
     for file in "${files[@]}"; do
         relative_path="$file"
         findings=()
 
         if [[ ! -f "$TARGET_DIR/$relative_path" ]]; then
-            findings+=("文件缺失")
+            findings+=("$(m "File missing" "文件缺失")")
         else
             if [[ -f "$SCAFFOLD_DIR/$relative_path" ]] && cmp -s "$SCAFFOLD_DIR/$relative_path" "$TARGET_DIR/$relative_path"; then
-                findings+=("看起来仍是模板原样内容")
+                findings+=("$(m "Appears to still be the unmodified template" "看起来仍是模板原样内容")")
             fi
 
             while IFS= read -r line; do
-                findings+=("仍包含占位内容：${line}")
+                findings+=("$(m "Still contains placeholder:" "仍包含占位内容：") ${line}")
             done < <(grep -nE '（待填写）|YYYY-MM-DD|Not Started / In Progress / Done|（示例：' "$TARGET_DIR/$relative_path" || true)
 
             if grep -n '<command>' "$TARGET_DIR/$relative_path" >/dev/null 2>&1; then
-                findings+=("仍包含 `<command>` 占位符")
+                findings+=("$(m "Still contains \`<command>\` placeholder" "仍包含 \`<command>\` 占位符")")
             fi
 
             if grep -n '当前未配置' "$TARGET_DIR/$relative_path" >/dev/null 2>&1; then
-                findings+=("包含“当前未配置”，建议人工确认是否确实缺失")
+                findings+=("$(m "Contains 'not configured' — please confirm whether this is accurate" "包含"当前未配置"，建议人工确认是否确实缺失")")
             fi
         fi
 
@@ -1365,24 +1424,24 @@ generate_audit_report() {
     done
 
     if [[ "$has_followups" == false ]]; then
-        echo "- 未发现明显占位内容或 fallback 配置。"
+        echo "- $(m "No obvious placeholders or fallback config found." "未发现明显占位内容或 fallback 配置。")"
     fi
 
     echo ""
-    echo "## 风险提示"
-    echo "- Git 历史、分支命名和 PR 规范经常无法仅从本地仓库完整推断，相关文档需人工复核。"
-    echo "- 安全边界、受保护路径和认证模式可能隐藏在部署环境或私有配置中，本地扫描只能给出保守结论。"
-    echo '- 若仓库没有显式原生测试/静态检查配置，quality.md 中可能仍保留“当前未配置”或 `<command>` 占位，需要人工确认。'
-    echo "- 业务范围与 Out of Scope 往往需要产品/项目背景信息，代码扫描只能提取当前可见边界。"
+    echo "## $(m "Risk Notes" "风险提示")"
+    echo "- $(m "Git history, branch naming, and PR conventions often cannot be fully inferred from the local repo alone — review these docs manually." "Git 历史、分支命名和 PR 规范经常无法仅从本地仓库完整推断，相关文档需人工复核。")"
+    echo "- $(m "Security boundaries, protected paths, and auth patterns may be hidden in deploy environments or private config — local scan gives conservative results." "安全边界、受保护路径和认证模式可能隐藏在部署环境或私有配置中，本地扫描只能给出保守结论。")"
+    echo "- $(m "If the repo has no explicit test/lint config, quality.md may still contain 'not configured' or \`<command>\` placeholders — verify manually." "若仓库没有显式原生测试/静态检查配置，quality.md 中可能仍保留"当前未配置"或 \`<command>\` 占位，需要人工确认。")"
+    echo "- $(m "Business scope and Out of Scope often need product/project context that code scanning alone cannot provide." "业务范围与 Out of Scope 往往需要产品/项目背景信息，代码扫描只能提取当前可见边界。")"
 }
 
 run_single_call_sequence() {
     local step_status=0
 
-    info "[2/2] 调用 ${CLI_TOOL} 单次完成全部填充（$(mode_label) 模式，默认）..."
+    info "[2/2] $(m "Calling ${CLI_TOOL} for single-call fill ($(mode_label) mode, default)..." "调用 ${CLI_TOOL} 单次完成全部填充（$(mode_label) 模式，默认）...")"
     echo ""
 
-    if run_edit_step "single_call" "单次填充全部文档" \
+    if run_edit_step "single_call" "$(m "Single-call fill all docs" "单次填充全部文档")" \
         "$TARGET_DIR/docs/overview.md" \
         "$TARGET_DIR/docs/architecture.md" \
         "$TARGET_DIR/docs/conventions.md" \
@@ -1393,8 +1452,8 @@ run_single_call_sequence() {
         :
     else
         step_status=$?
-        if [[ "$step_status" -eq 11 ]] && [[ "$(detect_cli_kind)" == "codex" ]]; then
-            warn "单次填充未成功落盘；对 codex 自动回退到 ultra 逐文件模式。"
+        if [[ "$step_status" -eq 11 ]]; then
+            warn "$(m "Single-call fill did not write files; falling back to ultra per-file mode." "单次填充未成功落盘；自动回退到 ultra 逐文件模式。")"
             ULTRA=true
             SINGLE_CALL=false
             run_fill_sequence
@@ -1408,24 +1467,24 @@ run_single_call_sequence() {
 }
 
 run_fill_sequence() {
-    info "[2/2] 调用 ${CLI_TOOL} 逐个填充文档（$(mode_label) 模式）..."
+    info "[2/2] $(m "Calling ${CLI_TOOL} for per-file fill ($(mode_label) mode)..." "调用 ${CLI_TOOL} 逐个填充文档（$(mode_label) 模式）...")"
     echo ""
 
     cd "$TARGET_DIR"
 
-    run_edit_step "overview" "填充 docs/overview.md" \
+    run_edit_step "overview" "$(m "Fill" "填充") docs/overview.md" \
         "$TARGET_DIR/docs/overview.md" -- <<<"$(overview_prompt)"
-    run_edit_step "architecture" "填充 docs/architecture.md" \
+    run_edit_step "architecture" "$(m "Fill" "填充") docs/architecture.md" \
         "$TARGET_DIR/docs/architecture.md" -- <<<"$(architecture_prompt)"
-    run_edit_step "conventions" "填充 docs/conventions.md" \
+    run_edit_step "conventions" "$(m "Fill" "填充") docs/conventions.md" \
         "$TARGET_DIR/docs/conventions.md" -- <<<"$(conventions_prompt)"
-    run_edit_step "quality" "填充 docs/quality.md" \
+    run_edit_step "quality" "$(m "Fill" "填充") docs/quality.md" \
         "$TARGET_DIR/docs/quality.md" -- <<<"$(quality_prompt)"
-    run_edit_step "security" "填充 docs/security.md" \
+    run_edit_step "security" "$(m "Fill" "填充") docs/security.md" \
         "$TARGET_DIR/docs/security.md" -- <<<"$(security_prompt)"
-    run_edit_step "progress" "填充 docs/progress.md" \
+    run_edit_step "progress" "$(m "Fill" "填充") docs/progress.md" \
         "$TARGET_DIR/docs/progress.md" -- <<<"$(progress_prompt)"
-    run_edit_step "backlog" "填充 docs/plan/backlog.md" \
+    run_edit_step "backlog" "$(m "Fill" "填充") docs/plan/backlog.md" \
         "$TARGET_DIR/docs/plan/backlog.md" -- <<<"$(backlog_prompt)"
 
     run_docs_review_step
@@ -1436,7 +1495,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --cli)
             if [[ $# -lt 2 ]]; then
-                error "参数 --cli 需要一个值。"
+                error "$(m "--cli requires a value." "参数 --cli 需要一个值。")"
                 usage
                 exit 1
             fi
@@ -1446,7 +1505,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         --model)
             if [[ $# -lt 2 ]]; then
-                error "参数 --model 需要一个值。"
+                error "$(m "--model requires a value." "参数 --model 需要一个值。")"
                 usage
                 exit 1
             fi
@@ -1456,7 +1515,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         --reasoning-effort)
             if [[ $# -lt 2 ]]; then
-                error "参数 --reasoning-effort 需要一个值。"
+                error "$(m "--reasoning-effort requires a value." "参数 --reasoning-effort 需要一个值。")"
                 usage
                 exit 1
             fi
@@ -1530,7 +1589,7 @@ while [[ $# -gt 0 ]]; do
             exit 0
             ;;
         *)
-            error "未知参数: $1"
+            error "$(m "Unknown argument:" "未知参数:") $1"
             usage
             exit 1
             ;;
@@ -1538,28 +1597,29 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ "$SCRIPT_DIR" == "$TARGET_DIR" ]]; then
-    error "错误：不能在模板仓库自身运行 init.sh"
-    echo "请 cd 到你的目标项目目录后再运行。"
+    error "$(m "Error: cannot run init.sh inside the template repo itself." "错误：不能在模板仓库自身运行 init.sh")"
+    echo "$(m "Please cd to your target project directory first." "请 cd 到你的目标项目目录后再运行。")"
     exit 1
 fi
 
 init_state_paths
 
 run_interactive_setup
+apply_cli_defaults
 
 # Set language-specific scaffold directory after interactive setup resolves LANG_CHOICE
 SCAFFOLD_DIR="${SCRIPT_DIR}/scaffold/${LANG_CHOICE}"
 
 ensure_scaffold_is_valid
 
-if [[ "$SKIP_FILL" == false ]] && [[ "$(detect_cli_kind)" == "codex" ]]; then
+if [[ "$SKIP_FILL" == false ]]; then
     if [[ "$EXECUTION_MODE_EXPLICIT" != true ]]; then
         ULTRA=true
         SINGLE_CALL=false
     fi
     if [[ "$DOCS_REVIEW_EXPLICIT" != true ]]; then
         DOCS_REVIEW_ENABLED=false
-        warn "检测到 codex；默认跳过独立文档复核（可用 --docs-review 显式启用）。"
+        warn "$(m "Skipping independent docs review by default (use --docs-review to enable)." "默认跳过独立文档复核（可用 --docs-review 显式启用）。")"
     fi
 fi
 
@@ -1570,23 +1630,23 @@ else
 fi
 
 if [[ "$SKIP_FILL" == false ]] && ! command -v "$CLI_TOOL" >/dev/null 2>&1; then
-    error "错误：未找到 ${CLI_TOOL} CLI。"
-    echo "可用 --skip-fill 跳过自动填充，或 --cli <name> 指定其他工具。"
+    error "$(m "Error: ${CLI_TOOL} CLI not found." "错误：未找到 ${CLI_TOOL} CLI。")"
+    echo "$(m "Use --skip-fill to skip auto-fill, or --cli <name> to specify another tool." "可用 --skip-fill 跳过自动填充，或 --cli <name> 指定其他工具。")"
     exit 1
 fi
 
 if git -C "$TARGET_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    info "检测到目标目录是 Git 仓库。"
+    info "$(m "Target directory is a Git repository." "检测到目标目录是 Git 仓库。")"
 else
-    error "错误：目标目录不是 Git 仓库。"
-    echo "Agent Workflow 的核心机制（stage.lock commit、branch 管理、PR 流程）强依赖 Git。"
-    echo "请先在目标目录执行 git init && git commit，再重新运行 init.sh。"
+    error "$(m "Error: target directory is not a Git repository." "错误：目标目录不是 Git 仓库。")"
+    echo "$(m "Agent Workflow relies on Git (stage.lock commits, branch management, PR flow)." "Agent Workflow 的核心机制（stage.lock commit、branch 管理、PR 流程）强依赖 Git。")"
+    echo "$(m "Please run 'git init && git commit' in the target directory first." "请先在目标目录执行 git init && git commit，再重新运行 init.sh。")"
     exit 1
 fi
 
 if ! python3 -c "import yaml" >/dev/null 2>&1; then
-    error "错误：未找到 PyYAML（scripts/build_context.py 的必须依赖）。"
-    echo "请先执行：python3 -m pip install pyyaml"
+    error "$(m "Error: PyYAML not found (required by scripts/build_context.py)." "错误：未找到 PyYAML（scripts/build_context.py 的必须依赖）。")"
+    echo "$(m "Please run: python3 -m pip install pyyaml" "请先执行：python3 -m pip install pyyaml")"
     exit 1
 fi
 
@@ -1595,7 +1655,7 @@ copy_template_skeleton
 
 if [[ "$SKIP_FILL" == true ]]; then
     copy_post_fill_scaffold_files
-    warn "已跳过自动填充（--skip-fill）。"
+    warn "$(m "Skipped auto-fill (--skip-fill)." "已跳过自动填充（--skip-fill）。")"
 else
     if [[ "$ULTRA" == true ]]; then
         run_fill_sequence
@@ -1607,35 +1667,35 @@ fi
 
 echo ""
 info "============================================================"
-info "初始化完成！"
+info "$(m "Initialization complete!" "初始化完成！")"
 info "============================================================"
 echo ""
 
 if [[ -s "$REPORT_FILE" ]]; then
-    echo "自动审计报告：$REPORT_FILE"
+    echo "$(m "Audit report:" "自动审计报告：") $REPORT_FILE"
     echo ""
     cat "$REPORT_FILE"
     echo ""
 fi
 
 if [[ -s "$DOCS_REVIEW_FILE" ]]; then
-    echo "独立文档复核报告：$DOCS_REVIEW_FILE"
+    echo "$(m "Docs review report:" "独立文档复核报告：") $DOCS_REVIEW_FILE"
     echo ""
     cat "$DOCS_REVIEW_FILE"
     echo ""
 fi
 
 if [[ "$SKIP_FILL" == true ]]; then
-    echo "下一步（--skip-fill 模式，文档仍包含模板占位，需人工补充）："
-    echo "  1. 填充 docs/ 下所有标记为（待填写）的文档"
-    echo "  2. 检查 issue_test/README.md 与 scripts/run_issue_tests.sh，确认符合你的仓库习惯"
-    echo "  3. 在 docs/plan/backlog.md 中补充你的第一批 issue"
-    echo "  4. 启动 agent：${CLI_TOOL} \"读 AGENTS.md，然后开始工作。\""
+    echo "$(m "Next steps (--skip-fill mode, docs still contain placeholders):" "下一步（--skip-fill 模式，文档仍包含模板占位，需人工补充）：")"
+    echo "  1. $(m "Fill all placeholder fields in docs/" "填充 docs/ 下所有标记为（待填写）的文档")"
+    echo "  2. $(m "Review issue_test/README.md and scripts/run_issue_tests.sh for your repo" "检查 issue_test/README.md 与 scripts/run_issue_tests.sh，确认符合你的仓库习惯")"
+    echo "  3. $(m "Add your first issues to docs/plan/backlog.md" "在 docs/plan/backlog.md 中补充你的第一批 issue")"
+    echo "  4. $(m "Start the agent:" "启动 agent：") ${CLI_TOOL} \"$(m "Read AGENTS.md, then start working." "读 AGENTS.md，然后开始工作。")\""
 else
-    echo "下一步："
-    echo "  1. 检查 docs/ 下的文档，补充仍需人工确认的内容"
-    echo "  2. 开始第一个 issue 时，先创建 issue_test/<issue_id>.sh，再实现代码"
-    echo "  3. 完成实现后，运行 bash scripts/run_issue_tests.sh 确认所有历史 issue test 都通过"
-    echo "  4. 在 docs/plan/backlog.md 中补充你的第一批 issue"
-    echo "  5. 启动 agent：${CLI_TOOL} \"读 AGENTS.md，然后开始工作。\""
+    echo "$(m "Next steps:" "下一步：")"
+    echo "  1. $(m "Review docs/ and fill any fields that still need human confirmation" "检查 docs/ 下的文档，补充仍需人工确认的内容")"
+    echo "  2. $(m "For your first issue, create issue_test/<issue_id>.sh before implementing code" "开始第一个 issue 时，先创建 issue_test/<issue_id>.sh，再实现代码")"
+    echo "  3. $(m "After implementation, run: bash scripts/run_issue_tests.sh" "完成实现后，运行 bash scripts/run_issue_tests.sh 确认所有历史 issue test 都通过")"
+    echo "  4. $(m "Add your first issues to docs/plan/backlog.md" "在 docs/plan/backlog.md 中补充你的第一批 issue")"
+    echo "  5. $(m "Start the agent:" "启动 agent：") ${CLI_TOOL} \"$(m "Read AGENTS.md, then start working." "读 AGENTS.md，然后开始工作。")\""
 fi
