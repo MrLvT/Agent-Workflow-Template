@@ -143,3 +143,25 @@
   - 每执行完一个 Stage 就停：需要外层调度器频繁重启，且状态切换碎片化
   - 回到 Stage 1 后继续自动领取下一个 issue：会让单次 run 失去边界，增加意外修改多个任务的风险
 - 影响：Stage 1 现在承担“成功终止点”的语义，Stage 6 路径 A 写回 `stage1/done` 后表示当前 issue 已完整闭环；下一次 run 才会处理下一个 issue。
+
+## D-011 统一 Codex 为无交互审批启动方式
+- 日期：2026-04-03
+- 状态：Accepted
+- 背景：仅使用 `codex --full-auto` 时，Codex CLI 仍可能沿用本机默认审批策略，导致 `git commit`、`git push` 等命令在不同环境里仍弹出人工确认，降低 workflow 的可预测性。
+- 决策：`init.sh` 在 `codex exec` 路径下显式传入 `--ask-for-approval never --sandbox workspace-write`；同时在模板和 scaffold 中新增 `scripts/start_agent.sh`，作为日常启动 Codex agent 的统一入口。
+- 原因：把审批策略固定在仓库提供的调用入口里，比依赖用户本地 `~/.codex/config.toml` 更稳定，也能减少“同一模板在不同机器上行为不同”的问题。
+- 被拒绝方案：
+  - 继续只依赖 `--full-auto`：审批行为仍可能受用户本机默认配置影响
+  - 要求每个用户手工修改全局 Codex 配置：设置分散，难以在团队内复制
+- 影响：使用模板推荐入口时，Codex 将默认不再为常见执行命令请求人工审批；若团队需要更严格审批，可自行改用其他 Codex 启动参数。
+
+## D-012 Codex 默认保留独立 docs review
+- 日期：2026-04-03
+- 状态：Accepted
+- 背景：模板此前对 `codex` 做了额外特判：若用户未显式传 `--docs-review` / `--no-docs-review`，就自动关闭独立 docs review。这与 D-006 中“初始化完成后默认追加一次独立 docs review”的基线决策不一致，也让 `codex` 和 `claude` 的默认行为产生了不必要差异。
+- 决策：移除 `codex` 路径下自动关闭 docs review 的逻辑，恢复为统一默认值：独立 docs review 默认开启，只有显式传 `--no-docs-review` 时才关闭。
+- 原因：独立 docs review 是初始化质量门的一部分，不应因 CLI 类型不同而静默失效；保持统一默认值也更符合 README 和决策文档的整体叙事。
+- 被拒绝方案：
+  - 保留 `codex` 特判：会继续制造不同 CLI 之间的隐式行为差异
+  - 仅更新 README、不改脚本：文档与真实行为会继续不一致
+- 影响：今后使用 `codex` 初始化时，即使默认切到 `--ultra`，也仍会执行独立 docs review；如更在意速度，可显式传 `--no-docs-review`。

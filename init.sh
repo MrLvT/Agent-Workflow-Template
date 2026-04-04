@@ -620,9 +620,10 @@ run_cli_prompt() {
         codex)
             local codex_args=(
                 "exec"
-                "--full-auto"
+                "--sandbox" "workspace-write"
                 "--color" "never"
                 "--model" "$MODEL"
+                "-c" "approval_policy=\"never\""
                 "-c" "model_reasoning_effort=\"$REASONING_EFFORT\""
                 "-C" "$TARGET_DIR"
             )

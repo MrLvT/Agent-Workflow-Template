@@ -72,7 +72,7 @@ Core parameters supported by `init.sh`:
 Additional notes:
 
 - The script's built-in defaults are `claude + gpt-5.4 + xhigh`.
-- If you use `codex` without explicitly specifying an execution mode, the script defaults to `--ultra` and skips the independent docs review by default.
+- If you use `codex` without explicitly specifying an execution mode, the script defaults to `--ultra`; the independent docs review still stays enabled unless you explicitly pass `--no-docs-review`.
 - `init.sh` will refuse to run in a non-Git repository because this workflow depends on `stage.lock` commits, branches, and PR delivery.
 
 ### 2. How to Start After Initialization
@@ -88,7 +88,7 @@ Daily operation:
 
 ```bash
 # Agent startup entry point
-codex "Read AGENTS.md, then start working."
+bash scripts/start_agent.sh
 
 # Manually inspect which context a Stage will load
 python3 scripts/build_context.py --stage stage3

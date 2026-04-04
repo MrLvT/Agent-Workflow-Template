@@ -72,7 +72,7 @@ bash /path/to/Agent-Workflow-Template/init.sh \
 补充说明：
 
 - 脚本内建默认值是 `claude + gpt-5.4 + xhigh`。
-- 如果你使用 `codex` 且没有显式指定执行模式，脚本会默认切到 `--ultra`，并默认跳过独立 docs review。
+- 如果你使用 `codex` 且没有显式指定执行模式，脚本会默认切到 `--ultra`；独立 docs review 仍默认开启，除非显式传 `--no-docs-review`。
 - `init.sh` 会拒绝在非 Git 仓库中运行，因为这个 workflow 依赖 `stage.lock` commit、分支和 PR 交付。
 
 ### 2. 初始化后怎么开始跑
@@ -88,7 +88,7 @@ bash /path/to/Agent-Workflow-Template/init.sh \
 
 ```bash
 # Agent 启动入口
-codex "读 AGENTS.md，然后开始工作。"
+bash scripts/start_agent.sh
 
 # 手工查看某个 Stage 会加载哪些上下文
 python3 scripts/build_context.py --stage stage3
