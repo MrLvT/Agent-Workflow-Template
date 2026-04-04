@@ -1,6 +1,6 @@
-current: stage1
-status: done
-previous: null
+current: stage3
+status: in_progress
+previous: stage1
 meta:
   issue_id: null
   code_changed: null
