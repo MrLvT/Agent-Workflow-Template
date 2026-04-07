@@ -6,14 +6,22 @@
 
 按以下顺序执行，不得跳过：
 
+### Step 0：准备 run_log
+
+读取 `docs/run_log.md`：
+
+- 若最新一条 run 记录的状态是 `in_progress`，继续复用该条
+- 若不存在进行中的记录，新建一条 run 记录，至少写入：开始时间、状态 `in_progress`、目标 `待 Stage 2 明确` 或 `恢复当前 issue`
+- 后续 Stage 必须持续补充同一条记录，不要为同一个 run 重复开新条目
+
 ### Step 1：读 stage.lock，优先路由
 
 读取 `docs/stage.lock`，检查 `status` 字段：
 
 - `status == failed` → **停止，通知人类**（说明上次执行失败，需要人工介入）
-- `current == stage1 && status == done && previous == stage6` → **成功停止本次 run**
+- `current == stage1 && status == done && previous == stage6` → **继续路由**
   - 说明刚完成一个完整 issue 闭环并从 Stage 6 回到了 Stage 1
-  - 不得在同一次 run 中继续领取 backlog 的下一个任务
+  - 若没有 blocker，可在同一次 run 中继续领取 backlog 的下一个任务
 - `status == in_progress` → **直接跳转到 `stage.lock.current` 指定的 Stage，不再继续下面的判断**
 - `status == done` → 继续 Step 2
 
@@ -34,10 +42,10 @@
 ## Exit Checklist
 
 - [ ] `stage.lock` 已读取
-- [ ] 已确定本次 run 是“成功结束”还是“继续路由”
+- [ ] 已确定本次 run 是“停止”还是“继续路由”
 - [ ] 若继续路由：`stage.lock` 已更新（current 指向下一个 Stage，status: in_progress）
 - [ ] 若继续路由：`stage.lock` 更新已单独 git commit（格式：`chore(stage): stage1 → <next> [done]`）
-- [ ] 若成功结束：已确认 `current: stage1`、`status: done`、`previous: stage6`
+- [ ] 若继续路由：已正确处理 `current: stage1`、`status: done`、`previous: stage6` 的连续运行场景
 
 ## Failure Path
 

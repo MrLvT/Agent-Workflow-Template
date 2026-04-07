@@ -6,11 +6,11 @@
 
 ### Step 1: Compare documentation against code
 
-Check each document in `docs/` against the code implementation and identify all discrepancies:
+Check each document in `.agent-workflow/docs/` against the code implementation and identify all discrepancies:
 
 - Documented behavior does not match actual code behavior
 - Documented directory structure or module layout does not match the code
-- Completed features listed in `docs/progress.md` do not match the code
+- Completed features listed in `.agent-workflow/docs/progress.md` do not match the code
 
 ### Step 2: Resolve discrepancies
 
@@ -25,7 +25,7 @@ meta:
 
 ### Step 3: decisions.md compaction (as needed)
 
-Check `docs/decisions.md`:
+Check `.agent-workflow/docs/decisions.md`:
 
 - Superseded entries exceed 30% of total entries → perform compaction
 - Summarize all Accepted entries into one-line summaries and update the "Current Effective Decision Summary" area
@@ -46,7 +46,7 @@ meta:
 
 - After writing the state above, proceed to Step 5 for the final remote delivery
 - Commit separately first: `chore(stage): stage6 → stage1 [done]`
-- Do not pick the next backlog task in the same run; start the next run from Stage 1 for a new issue
+- After writing this state, let Stage 1 decide whether to continue with backlog routing or end the current run
 
 **Path B (code changed):**
 
@@ -67,23 +67,32 @@ Preferred approach:
 
 ```bash
 git push
-bash scripts/deliver_pr.sh merge --merge-method squash
+bash .agent-workflow/scripts/deliver_pr.sh merge --merge-method squash
 ```
 
 - `ACTION=MERGED` → PR has completed the final merge; this run ends successfully
 - `ACTION=AUTO_MERGE_ENABLED` → auto-merge is enabled; this run ends successfully
-- If blocked by network, DNS, permissions, sandbox restrictions, `gh` unavailability, or repository settings, retry at most 3 times, then append a merge handoff to `docs/plan/archive/<issue_id>.md`:
+- If blocked by network, DNS, permissions, sandbox restrictions, `gh` unavailability, or repository settings, retry at most 3 times, then append a merge handoff to `.agent-workflow/docs/plan/archive/<issue_id>.md`:
   - Existing PR URL (if any)
   - Current final local commit hash
   - Failed command and error summary
-  - Human next steps (e.g. add permissions, provide credentials, retry `bash scripts/deliver_pr.sh merge --merge-method squash`)
+  - Human next steps (e.g. add permissions, provide credentials, retry `bash .agent-workflow/scripts/deliver_pr.sh merge --merge-method squash`)
 - After appending the handoff, if there are new documentation changes, add a new regular commit — **do not amend or mix into the Stage 6 stage.lock commit**
 - A merge handoff is not a failure: as long as the final state and human next steps are written clearly, the run may also end
+
+### Step 5.5: Update run_log
+
+Append the current issue's final delivery outcome to `.agent-workflow/docs/run_log.md`, including at least:
+
+- Final delivery state: `MERGED` / `AUTO_MERGE_ENABLED` / `MERGE_HANDOFF` / `RETURN_TO_STAGE3`
+- Verifiable outcomes: PR URL, commit hash, test conclusion, or handoff summary
+- If the run ends here, fill in the end time and final status; if backlog routing will continue, keep the run entry as `in_progress`
 
 ## Exit Checklist
 
 - [ ] Documentation and code are aligned; no known discrepancies
-- [ ] `docs/decisions.md` handled (compacted or confirmed no compaction needed)
+- [ ] `.agent-workflow/docs/decisions.md` handled (compacted or confirmed no compaction needed)
+- [ ] `.agent-workflow/docs/run_log.md` updated with the final delivery outcome for this issue
 - [ ] `stage.lock` correctly updated following Path A or Path B
 - [ ] If Path A: returned to `stage1/done` and treated as the successful endpoint of this run
 - [ ] `stage.lock` update committed separately
@@ -92,10 +101,10 @@ bash scripts/deliver_pr.sh merge --merge-method squash
 - [ ] If Path A, one of the following is satisfied:
   - PR directly merged
   - PR has auto-merge enabled
-  - `docs/plan/archive/<issue_id>.md` has merge handoff appended, with failure reason and human next steps clearly written
+  - `.agent-workflow/docs/plan/archive/<issue_id>.md` has merge handoff appended, with failure reason and human next steps clearly written
 - [ ] If Path B: this run did not attempt merge; ready to return to Stage 3 to continue the loop
 
 ## Failure Path
 
-- Found a contradiction between documentation and code that cannot be resolved → write to `docs/blockers.md`, update stage.lock (status: failed), stop, notify human
-- In Path A, cannot determine whether merge failure has been fully captured as handoff info → write to `docs/blockers.md`, update stage.lock (status: failed), stop, notify human
+- Found a contradiction between documentation and code that cannot be resolved → write to `.agent-workflow/docs/blockers.md`, update stage.lock (status: failed), stop, notify human
+- In Path A, cannot determine whether merge failure has been fully captured as handoff info → write to `.agent-workflow/docs/blockers.md`, update stage.lock (status: failed), stop, notify human

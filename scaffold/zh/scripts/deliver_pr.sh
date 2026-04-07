@@ -14,8 +14,8 @@ AUTO_FALLBACK=true
 usage() {
     cat <<'EOF'
 用法：
-  bash scripts/deliver_pr.sh ensure [--repo <owner/repo>] [--base <branch>] [--title <title>] [--body-file <path>]
-  bash scripts/deliver_pr.sh merge [--repo <owner/repo>] [--merge-method <merge|squash|rebase>] [--no-auto]
+  bash .agent-workflow/scripts/deliver_pr.sh ensure [--repo <owner/repo>] [--base <branch>] [--title <title>] [--body-file <path>]
+  bash .agent-workflow/scripts/deliver_pr.sh merge [--repo <owner/repo>] [--merge-method <merge|squash|rebase>] [--no-auto]
 
 子命令：
   ensure    推送当前分支，并创建或复用对应 PR

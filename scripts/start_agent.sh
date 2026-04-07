@@ -9,4 +9,4 @@ if ! command -v codex >/dev/null 2>&1; then
 fi
 
 cd "$ROOT_DIR"
-exec codex -a never --sandbox workspace-write "Read AGENTS.md, then start working."
+exec codex -a never --sandbox danger-full-access "Read AGENTS.md, then start working."

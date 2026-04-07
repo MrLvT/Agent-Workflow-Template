@@ -3,7 +3,7 @@
 ## Current Status
 
 - No issue currently in progress.
-- When starting a new task, the agent or a human will rewrite this file with a concrete task plan, and create `issue_test/<issue_id>.sh` first.
+- When starting a new task, the agent or a human will rewrite this file with a concrete task plan, and create `.agent-workflow/issue_test/<issue_id>.sh` first.
 
 ## Fields to Fill When Starting a New Task
 
@@ -15,5 +15,5 @@
 ## Maintenance Notes
 
 - This file records only the one issue currently in progress.
-- The corresponding test script is always kept at `issue_test/<issue_id>.sh`; it remains in `issue_test/` after the task is complete.
-- After completing a task, archive this file to `docs/plan/archive/`, then reset it to the "no issue in progress" state.
+- The corresponding test script is always kept at `.agent-workflow/issue_test/<issue_id>.sh`; it remains in `.agent-workflow/issue_test/` after the task is complete.
+- After completing a task, archive this file to `.agent-workflow/docs/plan/archive/`, then reset it to the "no issue in progress" state.

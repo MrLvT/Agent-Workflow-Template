@@ -38,4 +38,4 @@
 ## Maintenance Rules
 
 1. Update only when project goals or scope change.
-2. Scope changes must be recorded as decisions in `docs/decisions.md`.
+2. Scope changes must be recorded as decisions in `.agent-workflow/docs/decisions.md`.

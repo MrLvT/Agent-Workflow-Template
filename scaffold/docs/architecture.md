@@ -38,6 +38,6 @@ src/
 
 ## 维护规则
 
-1. 修改边界前先记录决策到 `docs/decisions.md`。
+1. 修改边界前先记录决策到 `.agent-workflow/docs/decisions.md`。
 2. 边界变化必须同步更新 lint 规则。
 3. lint 规则未更新前，不算架构更新完成。

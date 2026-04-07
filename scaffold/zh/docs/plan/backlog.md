@@ -15,7 +15,7 @@
 
 - 目标：这次要完成什么
 - 范围：改哪里、影响哪里
-- 验收：什么结果算 done，最好能映射到 `issue_test/<issue_id>.sh`
+- 验收：什么结果算 done，最好能映射到 `.agent-workflow/issue_test/<issue_id>.sh`
 - 来源：这个任务来自哪里，例如 bug、用户反馈、代码注释、产品需求、文档缺口
 
 ## 推荐模板
@@ -51,11 +51,11 @@
 ## 编写规则
 
 1. 标题写“结果”，不要写“过程”。
-2. backlog 只定义“做什么”，不展开“怎么做”；具体执行步骤写到 `docs/plan/current.md`。
+2. backlog 只定义“做什么”，不展开“怎么做”；具体执行步骤写到 `.agent-workflow/docs/plan/current.md`。
 3. 一个条目应尽量对应一个可闭环的 issue；过大的任务先拆分。
 4. “验收”必须可判断，最好能转成 issue test，而不是“看起来差不多”。
 5. 信息不完整时，至少把“目标 + 范围 + 来源”写清，避免 Stage 2 无法选任务。
-6. 如果任务超出 `docs/overview.md` 当前范围，应先更新范围定义，再继续执行。
+6. 如果任务超出 `.agent-workflow/docs/overview.md` 当前范围，应先更新范围定义，再继续执行。
 
 ## 优先级定义
 
@@ -66,7 +66,7 @@
 ## 维护说明
 
 - 人类和 agent 都可以补充 backlog。
-- Stage 2 会从这里选择一个 `- [ ]` 条目，生成 `issue_id`、`issue_test/<issue_id>.sh` 和 `docs/plan/current.md`。
+- Stage 2 会从这里选择一个 `- [ ]` 条目，生成 `issue_id`、`.agent-workflow/issue_test/<issue_id>.sh` 和 `.agent-workflow/docs/plan/current.md`。
 - Stage 4 完成交付后，会把对应条目标记为 `- [x]`。
 
 ## P0（最高优先级）

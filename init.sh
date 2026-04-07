@@ -23,7 +23,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SCAFFOLD_DIR="${SCRIPT_DIR}/scaffold"
-TARGET_DIR="$(pwd)"
+REPO_DIR="$(pwd)"
+WORKFLOW_DIR_NAME=".agent-workflow"
+TARGET_DIR="${REPO_DIR}/${WORKFLOW_DIR_NAME}"
 CLI_TOOL="claude"
 MODEL="gpt-5.4"
 REASONING_EFFORT="xhigh"
@@ -50,6 +52,8 @@ EXECUTION_MODE_EXPLICIT=false
 DOCS_REVIEW_EXPLICIT=false
 NON_INTERACTIVE_EXPLICIT=false
 LANG_EXPLICIT=false
+SKELETON_COPIED=false
+AGENTS_COPIED=false
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -71,9 +75,24 @@ m() {
     if [[ "$LOCALE" == "zh" ]]; then printf '%s' "$2"; else printf '%s' "$1"; fi
 }
 
+finalize_init_artifacts() {
+    local exit_code="$1"
+
+    if [[ "$SKELETON_COPIED" == true ]] && [[ "$AGENTS_COPIED" != true ]] && [[ -f "$SCAFFOLD_DIR/AGENTS.md" ]]; then
+        copy_managed_file "AGENTS.md" || true
+        AGENTS_COPIED=true
+        if [[ "$exit_code" -ne 0 ]]; then
+            warn "$(m "Initialization stopped early; AGENTS.md was still copied so the repo keeps the startup entrypoint." "初始化中途停止；已补拷贝 AGENTS.md，避免目标仓库缺少启动入口。")"
+        fi
+    fi
+}
+
+trap 'status=$?; trap - EXIT; finalize_init_artifacts "$status"; exit "$status"' EXIT
+
 MANAGED_FILES=(
     "AGENTS.md"
     "docs/stage.lock"
+    "docs/run_log.md"
     "docs/workflow/stage1.md"
     "docs/workflow/stage2.md"
     "docs/workflow/stage3.md"
@@ -97,6 +116,7 @@ MANAGED_FILES=(
     "scripts/build_context.py"
     "scripts/run_issue_tests.sh"
     "scripts/deliver_pr.sh"
+    "scripts/start_agent.sh"
 )
 
 usage() {
@@ -357,7 +377,8 @@ prompt_model_choice() {
 print_configuration_summary() {
     echo ""
     echo "$(m "Configuration:" "将使用以下配置：")"
-    echo "  - $(m "Target dir" "目标目录"): ${TARGET_DIR}"
+    echo "  - $(m "Repo dir" "仓库目录"): ${REPO_DIR}"
+    echo "  - $(m "Workflow dir" "工作流目录"): ${TARGET_DIR}"
     echo "  - $(m "Language" "语言"): ${LANG_CHOICE}"
     echo "  - $(m "Mode" "模式"): ${INIT_MODE}"
     if [[ "$SKIP_FILL" == true ]]; then
@@ -420,7 +441,7 @@ run_interactive_setup() {
 }
 
 init_state_paths() {
-    STATE_DIR="${TARGET_DIR}/${STATE_DIR_NAME}"
+    STATE_DIR="${REPO_DIR}/${STATE_DIR_NAME}"
     LOG_DIR="${STATE_DIR}/logs"
     REPORT_FILE="${STATE_DIR}/final-review.md"
     DOCS_REVIEW_FILE="${STATE_DIR}/docs-review.md"
@@ -497,8 +518,20 @@ check_existing_managed_files() {
         warn "$(m "The following managed files already exist in the target directory:" "检测到目标目录中已存在以下受 init.sh 管理的文件：")"
         printf '  - %s\n' "${conflicts[@]}"
         confirm_or_abort "$(m "Continuing will overwrite these files. Continue?" "继续将覆盖这些文件，是否继续？")"
-    elif [[ -d "$TARGET_DIR/docs" ]]; then
-        warn "$(m "Target directory already has a docs/ folder. init.sh will only write managed files, not clean up other docs." "目标目录已存在 docs/ 目录。init.sh 只会写入模板管理的文件，不会清理其他文档。")"
+    elif [[ -d "$TARGET_DIR" ]]; then
+        warn "$(m "Workflow sidecar directory already exists. init.sh will only overwrite managed files inside it." "检测到工作流 sidecar 目录已存在。init.sh 只会覆盖其中受管理的文件。")"
+    fi
+}
+
+ensure_workflow_ignored() {
+    local exclude_file="${REPO_DIR}/.git/info/exclude"
+    local marker="/${WORKFLOW_DIR_NAME}/"
+
+    mkdir -p "$(dirname "$exclude_file")"
+    touch "$exclude_file"
+
+    if ! grep -Fxq "$marker" "$exclude_file"; then
+        printf '\n%s\n' "$marker" >>"$exclude_file"
     fi
 }
 
@@ -506,6 +539,7 @@ ensure_scaffold_is_valid() {
     local required_files=(
         "AGENTS.md"
         "docs/stage.lock"
+        "docs/run_log.md"
         "docs/workflow/stage1.md"
         "docs/workflow/stage2.md"
         "docs/workflow/stage3.md"
@@ -519,6 +553,7 @@ ensure_scaffold_is_valid() {
         "scripts/build_context.py"
         "scripts/run_issue_tests.sh"
         "scripts/deliver_pr.sh"
+        "scripts/start_agent.sh"
     )
     local f=""
     for f in "${required_files[@]}"; do
@@ -615,6 +650,7 @@ run_cli_prompt() {
     local cli_kind=""
 
     cli_kind="$(detect_cli_kind)"
+    prompt="$(rewrite_prompt_paths "$prompt")"
 
     case "$cli_kind" in
         codex)
@@ -625,7 +661,7 @@ run_cli_prompt() {
                 "--model" "$MODEL"
                 "-c" "approval_policy=\"never\""
                 "-c" "model_reasoning_effort=\"$REASONING_EFFORT\""
-                "-C" "$TARGET_DIR"
+                "-C" "$REPO_DIR"
             )
             codex_args+=("-")
             printf '%s' "$prompt" | "$CLI_TOOL" "${codex_args[@]}"
@@ -640,6 +676,20 @@ run_cli_prompt() {
             "$CLI_TOOL" "${claude_args[@]}" "$prompt"
             ;;
     esac
+}
+
+rewrite_prompt_paths() {
+    local prompt="$1"
+
+    prompt="${prompt//\`AGENTS.md\`/\`${WORKFLOW_DIR_NAME//\//\\/}\/AGENTS.md\`}"
+    prompt="${prompt// AGENTS.md/ ${WORKFLOW_DIR_NAME}/AGENTS.md}"
+    prompt="${prompt//\`docs\//\`${WORKFLOW_DIR_NAME//\//\\/}\/docs/}"
+    prompt="${prompt//\`issue_test\//\`${WORKFLOW_DIR_NAME//\//\\/}\/issue_test/}"
+    prompt="${prompt//\`scripts\//\`${WORKFLOW_DIR_NAME//\//\\/}\/scripts/}"
+    prompt="${prompt// docs\// ${WORKFLOW_DIR_NAME}/docs/}"
+    prompt="${prompt// issue_test\// ${WORKFLOW_DIR_NAME}/issue_test/}"
+    prompt="${prompt// scripts\// ${WORKFLOW_DIR_NAME}/scripts/}"
+    printf '%s' "$prompt"
 }
 
 validate_edit_step() {
@@ -706,7 +756,7 @@ run_edit_step() {
 
     info "  → ${title}"
     if ! (
-        cd "$TARGET_DIR"
+        cd "$REPO_DIR"
         run_cli_prompt "$prompt"
     ) >"$log_file" 2>&1; then
         error "$(m "Step failed:" "步骤失败：") ${title}"
@@ -775,7 +825,7 @@ run_docs_review_step() {
     info "  → ${title}"
 
     if ! (
-        cd "$TARGET_DIR"
+        cd "$REPO_DIR"
         run_cli_prompt "$(docs_review_prompt)"
     ) >"$DOCS_REVIEW_FILE" 2>"$LOG_DIR/${step_id}.log"; then
         error "$(m "Step failed:" "步骤失败：") ${title}"
@@ -823,6 +873,7 @@ copy_template_skeleton() {
     # 运行时状态文件：固定初始状态
     mkdir -p "$TARGET_DIR/docs/plan/archive"
     copy_managed_file "docs/blockers.md"
+    copy_managed_file "docs/run_log.md"
     copy_managed_file "docs/plan/current.md"
     copy_managed_file "docs/plan/archive/README.md"
     mkdir -p "$TARGET_DIR/issue_test"
@@ -833,6 +884,7 @@ copy_template_skeleton() {
     copy_managed_file "scripts/build_context.py"
     copy_managed_file "scripts/run_issue_tests.sh"
     copy_managed_file "scripts/deliver_pr.sh"
+    copy_managed_file "scripts/start_agent.sh"
 
     # ── 需要 Agent 填充的模板文件 ──────────────────────────────────
     # 以下文件以空白模板复制，init.sh 后续步骤会调用 Agent 填充。
@@ -862,6 +914,7 @@ copy_template_skeleton() {
     rm -f "$TARGET_DIR/docs/decisions.md.bak"
 
     chmod +x "$TARGET_DIR/scripts/"*.sh
+    SKELETON_COPIED=true
     info "$(m "Template skeleton copied." "模板骨架已复制。")"
 }
 
@@ -869,6 +922,7 @@ copy_post_fill_scaffold_files() {
     # AGENTS.md 会影响 codex 的仓库级指令解析。
     # 初始化自动填充期间先不复制，避免 codex 偏离 bootstrap prompt。
     copy_managed_file "AGENTS.md"
+    AGENTS_COPIED=true
 }
 
 overview_prompt() {
@@ -1597,7 +1651,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-if [[ "$SCRIPT_DIR" == "$TARGET_DIR" ]]; then
+if [[ "$SCRIPT_DIR" == "$REPO_DIR" ]]; then
     error "$(m "Error: cannot run init.sh inside the template repo itself." "错误：不能在模板仓库自身运行 init.sh")"
     echo "$(m "Please cd to your target project directory first." "请 cd 到你的目标项目目录后再运行。")"
     exit 1
@@ -1636,7 +1690,7 @@ if [[ "$SKIP_FILL" == false ]] && ! command -v "$CLI_TOOL" >/dev/null 2>&1; then
     exit 1
 fi
 
-if git -C "$TARGET_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+if git -C "$REPO_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     info "$(m "Target directory is a Git repository." "检测到目标目录是 Git 仓库。")"
 else
     error "$(m "Error: target directory is not a Git repository." "错误：目标目录不是 Git 仓库。")"
@@ -1651,6 +1705,7 @@ if ! python3 -c "import yaml" >/dev/null 2>&1; then
     exit 1
 fi
 
+ensure_workflow_ignored
 reset_run_artifacts
 copy_template_skeleton
 
@@ -1688,15 +1743,15 @@ fi
 
 if [[ "$SKIP_FILL" == true ]]; then
     echo "$(m "Next steps (--skip-fill mode, docs still contain placeholders):" "下一步（--skip-fill 模式，文档仍包含模板占位，需人工补充）：")"
-    echo "  1. $(m "Fill all placeholder fields in docs/" "填充 docs/ 下所有标记为（待填写）的文档")"
-    echo "  2. $(m "Review issue_test/README.md and scripts/run_issue_tests.sh for your repo" "检查 issue_test/README.md 与 scripts/run_issue_tests.sh，确认符合你的仓库习惯")"
-    echo "  3. $(m "Add your first issues to docs/plan/backlog.md" "在 docs/plan/backlog.md 中补充你的第一批 issue")"
-    echo "  4. $(m "Start the agent:" "启动 agent：") ${CLI_TOOL} \"$(m "Read AGENTS.md, then start working." "读 AGENTS.md，然后开始工作。")\""
+    echo "  1. $(m "Fill all placeholder fields in ${WORKFLOW_DIR_NAME}/docs/" "填充 ${WORKFLOW_DIR_NAME}/docs/ 下所有标记为（待填写）的文档")"
+    echo "  2. $(m "Review ${WORKFLOW_DIR_NAME}/issue_test/README.md and ${WORKFLOW_DIR_NAME}/scripts/run_issue_tests.sh for your repo" "检查 ${WORKFLOW_DIR_NAME}/issue_test/README.md 与 ${WORKFLOW_DIR_NAME}/scripts/run_issue_tests.sh，确认符合你的仓库习惯")"
+    echo "  3. $(m "Add your first issues to ${WORKFLOW_DIR_NAME}/docs/plan/backlog.md" "在 ${WORKFLOW_DIR_NAME}/docs/plan/backlog.md 中补充你的第一批 issue")"
+    echo "  4. $(m "Start the agent:" "启动 agent：") bash ${WORKFLOW_DIR_NAME}/scripts/start_agent.sh"
 else
     echo "$(m "Next steps:" "下一步：")"
-    echo "  1. $(m "Review docs/ and fill any fields that still need human confirmation" "检查 docs/ 下的文档，补充仍需人工确认的内容")"
-    echo "  2. $(m "For your first issue, create issue_test/<issue_id>.sh before implementing code" "开始第一个 issue 时，先创建 issue_test/<issue_id>.sh，再实现代码")"
-    echo "  3. $(m "After implementation, run: bash scripts/run_issue_tests.sh" "完成实现后，运行 bash scripts/run_issue_tests.sh 确认所有历史 issue test 都通过")"
-    echo "  4. $(m "Add your first issues to docs/plan/backlog.md" "在 docs/plan/backlog.md 中补充你的第一批 issue")"
-    echo "  5. $(m "Start the agent:" "启动 agent：") ${CLI_TOOL} \"$(m "Read AGENTS.md, then start working." "读 AGENTS.md，然后开始工作。")\""
+    echo "  1. $(m "Review ${WORKFLOW_DIR_NAME}/docs/ and fill any fields that still need human confirmation" "检查 ${WORKFLOW_DIR_NAME}/docs/ 下的文档，补充仍需人工确认的内容")"
+    echo "  2. $(m "For your first issue, create ${WORKFLOW_DIR_NAME}/issue_test/<issue_id>.sh before implementing code" "开始第一个 issue 时，先创建 ${WORKFLOW_DIR_NAME}/issue_test/<issue_id>.sh，再实现代码")"
+    echo "  3. $(m "After implementation, run: bash ${WORKFLOW_DIR_NAME}/scripts/run_issue_tests.sh" "完成实现后，运行 bash ${WORKFLOW_DIR_NAME}/scripts/run_issue_tests.sh 确认所有历史 issue test 都通过")"
+    echo "  4. $(m "Add your first issues to ${WORKFLOW_DIR_NAME}/docs/plan/backlog.md" "在 ${WORKFLOW_DIR_NAME}/docs/plan/backlog.md 中补充你的第一批 issue")"
+    echo "  5. $(m "Start the agent:" "启动 agent：") bash ${WORKFLOW_DIR_NAME}/scripts/start_agent.sh"
 fi

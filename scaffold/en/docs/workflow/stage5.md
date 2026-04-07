@@ -6,7 +6,7 @@
 
 ### Step 1: Write the REFLECT file (hard constraint — cannot be skipped)
 
-Create `docs/plan/archive/REFLECT-<meta.issue_id>.md`, which must contain the following three required answers:
+Create `.agent-workflow/docs/plan/archive/REFLECT-<meta.issue_id>.md`, which must contain the following three required answers:
 
 ```markdown
 # REFLECT-<issue-id>
@@ -25,7 +25,7 @@ Create `docs/plan/archive/REFLECT-<meta.issue_id>.md`, which must contain the fo
 
 ### Step 2: Update wisdom.md (if applicable)
 
-If Step 1 identified a new reusable success pattern, append to `docs/wisdom.md`:
+If Step 1 identified a new reusable success pattern, append to `.agent-workflow/docs/wisdom.md`:
 
 - Must include the source `issue_id`
 - Must include the applicable scenario
@@ -33,7 +33,7 @@ If Step 1 identified a new reusable success pattern, append to `docs/wisdom.md`:
 
 ### Step 3: Update antipatterns.md (if applicable)
 
-If Step 1 identified a new failure pattern, append to `docs/antipatterns.md`:
+If Step 1 identified a new failure pattern, append to `.agent-workflow/docs/antipatterns.md`:
 
 - Must include the source blocker or `issue_id`
 - Must include the failure signal (early symptom)
@@ -41,9 +41,9 @@ If Step 1 identified a new failure pattern, append to `docs/antipatterns.md`:
 
 ### Step 4: Update other documents (if changes occurred)
 
-- Important design decisions → append to `docs/decisions.md`
-- Architecture boundary changes → update `docs/architecture.md`
-- Convention changes → update `docs/conventions.md`
+- Important design decisions → append to `.agent-workflow/docs/decisions.md`
+- Architecture boundary changes → update `.agent-workflow/docs/architecture.md`
+- Convention changes → update `.agent-workflow/docs/conventions.md`
 
 ### Step 5: Update stage.lock
 
@@ -55,10 +55,10 @@ previous: stage5
 
 ## Exit Checklist
 
-- [ ] `docs/plan/archive/REFLECT-<meta.issue_id>.md` created (must exist)
+- [ ] `.agent-workflow/docs/plan/archive/REFLECT-<meta.issue_id>.md` created (must exist)
 - [ ] REFLECT file contains all three required answers, with no empty fields
-- [ ] `docs/wisdom.md` handled (appended or explicitly written "none" in REFLECT)
-- [ ] `docs/antipatterns.md` handled (appended or explicitly written "none" in REFLECT)
+- [ ] `.agent-workflow/docs/wisdom.md` handled (appended or explicitly written "none" in REFLECT)
+- [ ] `.agent-workflow/docs/antipatterns.md` handled (appended or explicitly written "none" in REFLECT)
 - [ ] `stage.lock` updated (current: stage6)
 - [ ] `stage.lock` update committed separately (format: `chore(stage): stage5 → stage6 [done]`)
 

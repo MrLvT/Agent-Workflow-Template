@@ -2,7 +2,7 @@
 
 > 本文档回答：项目现在长什么样？
 >
-> 只记录事实状态，不写未来意图。未来意图归 `docs/plan/backlog.md`。
+> 只记录事实状态，不写未来意图。未来意图归 `.agent-workflow/docs/plan/backlog.md`。
 
 ## 更新时间
 

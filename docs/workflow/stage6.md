@@ -46,7 +46,7 @@ meta:
 
 - 写回上述状态后，进入 Step 5 做最终远端交付
 - 先单独 git commit：`chore(stage): stage6 → stage1 [done]`
-- 不要在同一次 run 中继续领取 backlog 的下一个任务；下一次启动再从 Stage 1 开始新的 issue
+- 写回后由 Stage 1 判断是继续领取 backlog，还是以本次结果结束当前 run
 
 **路径 B（改了代码）：**
 
@@ -79,6 +79,14 @@ bash scripts/deliver_pr.sh merge --merge-method squash
   - 人类下一步动作（例如补权限、补凭据、重试 `bash scripts/deliver_pr.sh merge --merge-method squash`）
 - 追加 handoff 后，如有新文档修改，必须新增一个普通 commit；**不要 amend 或混入 Stage 6 的 stage.lock commit**
 - merge handoff 不是失败：只要最终状态和人工下一步已经写清，本次 run 也可结束
+
+### Step 5.5：更新 run_log
+
+在 `docs/run_log.md` 中追加当前 issue 的最终交付结果，至少包含：
+
+- 最终交付状态：`MERGED` / `AUTO_MERGE_ENABLED` / `MERGE_HANDOFF` / `RETURN_TO_STAGE3`
+- 可验证结果：PR URL、commit hash、测试结论或 handoff 摘要
+- 若本次 run 在这里结束，补齐结束时间与最终状态；若还要继续领取 backlog，则保持当前 run 记录为 `in_progress`
 
 ## Exit Checklist
 

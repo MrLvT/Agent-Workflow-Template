@@ -3,16 +3,16 @@
 build_context.py - 根据当前 stage 输出需要加载的文件列表
 
 用法：
-    python scripts/build_context.py --stage <stage_id>
+    python .agent-workflow/scripts/build_context.py --stage <stage_id>
 
 输出：
     每行一个文件路径（stdout）；缺少必须文件时 exit 1
 
 Agent 使用方式：
-    1. 读 docs/stage.lock，获取 current 字段
-    2. 运行 python scripts/build_context.py --stage <current>
+    1. 读 .agent-workflow/docs/stage.lock，获取 current 字段
+    2. 运行 python .agent-workflow/scripts/build_context.py --stage <current>
     3. 读取输出的所有文件
-    4. 执行 docs/workflow/<current>.md 的指令
+    4. 执行 .agent-workflow/docs/workflow/<current>.md 的指令
 """
 
 import argparse
@@ -27,6 +27,7 @@ GLOBAL_FILES = [
     "docs/overview.md",
     "docs/architecture.md",
     "docs/conventions.md",
+    "docs/run_log.md",
     "issue_test/README.md",
 ]
 
@@ -85,22 +86,25 @@ STAGE_INSTRUCTION = {
 VALID_STAGES = list(STAGE_FILES.keys())
 
 
-def get_repo_root():
-    """从脚本位置推断仓库根目录"""
+def get_paths():
+    """从脚本位置推断 workflow 根目录和仓库根目录"""
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    return os.path.dirname(script_dir)
+    workflow_root = os.path.dirname(script_dir)
+    repo_root = os.path.dirname(workflow_root)
+    workflow_dir_name = os.path.basename(workflow_root)
+    return repo_root, workflow_root, workflow_dir_name
 
 
-def read_stage_lock(repo_root):
+def read_stage_lock(workflow_root):
     """读取 stage.lock，返回 dict"""
-    lock_path = os.path.join(repo_root, "docs", "stage.lock")
+    lock_path = os.path.join(workflow_root, "docs", "stage.lock")
     if not os.path.exists(lock_path):
         return {}
     with open(lock_path, "r") as f:
         return yaml.safe_load(f) or {}
 
 
-def resolve_files(stage, repo_root, lock_data):
+def resolve_files(stage, workflow_root, lock_data):
     """
     按顺序组装文件列表：
     1. 全局层（必须）
@@ -120,7 +124,7 @@ def resolve_files(stage, repo_root, lock_data):
 
     # 2. 可选全局层
     for f in OPTIONAL_GLOBAL_FILES:
-        if os.path.exists(os.path.join(repo_root, f)):
+        if os.path.exists(os.path.join(workflow_root, f)):
             optional.append(f)
 
     # 3. Stage 层（必须）
@@ -170,12 +174,12 @@ def main():
     )
     args = parser.parse_args()
 
-    repo_root = get_repo_root()
-    lock_data = read_stage_lock(repo_root)
-    required, optional = resolve_files(args.stage, repo_root, lock_data)
+    repo_root, workflow_root, workflow_dir_name = get_paths()
+    lock_data = read_stage_lock(workflow_root)
+    required, optional = resolve_files(args.stage, workflow_root, lock_data)
 
     # 必须文件：缺失则报错并 exit 1
-    missing = [f for f in required if not os.path.exists(os.path.join(repo_root, f))]
+    missing = [f for f in required if not os.path.exists(os.path.join(workflow_root, f))]
     if missing:
         for f in missing:
             print(f"[build_context] FATAL: required file missing: {f}", file=sys.stderr)
@@ -183,7 +187,7 @@ def main():
 
     # 输出所有文件（必须 + 可选）
     for f in required + optional:
-        print(f)
+        print(f"{workflow_dir_name}/{f}")
 
 
 if __name__ == "__main__":

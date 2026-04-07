@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# 运行 issue_test/ 下的累积回归脚本。
+# 运行 .agent-workflow/issue_test/ 下的累积回归脚本。
 # 默认执行全部脚本；可通过 --exclude 排除当前 issue 的脚本。
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-ISSUE_TEST_DIR="$ROOT_DIR/issue_test"
+WORKFLOW_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_DIR="$(cd "${WORKFLOW_DIR}/.." && pwd)"
+ISSUE_TEST_DIR="$WORKFLOW_DIR/issue_test"
 FAIL=0
 RAN=0
 declare -a EXCLUDES=()
@@ -12,7 +13,7 @@ declare -a EXCLUDES=()
 usage() {
     cat <<'EOF'
 用法：
-  bash scripts/run_issue_tests.sh [--exclude issue_test/<issue_id>.sh]
+  bash .agent-workflow/scripts/run_issue_tests.sh [--exclude .agent-workflow/issue_test/<issue_id>.sh]
 
 选项：
   --exclude <path>   排除指定 issue test，可重复传入
@@ -22,8 +23,10 @@ EOF
 
 normalize_path() {
     local path="$1"
-    path="${path#"$ROOT_DIR"/}"
+    path="${path#"$REPO_DIR"/}"
+    path="${path#"$WORKFLOW_DIR"/}"
     path="${path#./}"
+    path="${path#".agent-workflow/"}"
     printf '%s\n' "$path"
 }
 
@@ -67,7 +70,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ ! -d "$ISSUE_TEST_DIR" ]]; then
-    echo "ERROR: 未找到 issue_test/ 目录。" >&2
+    echo "ERROR: 未找到 .agent-workflow/issue_test/ 目录。" >&2
     exit 1
 fi
 

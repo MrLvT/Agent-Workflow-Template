@@ -38,4 +38,4 @@
 ## 维护规则
 
 1. 仅在项目目标或范围发生变化时更新。
-2. 范围变更需同步记录决策到 `docs/decisions.md`。
+2. 范围变更需同步记录决策到 `.agent-workflow/docs/decisions.md`。

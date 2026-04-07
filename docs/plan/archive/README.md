@@ -2,6 +2,8 @@
 
 已完成 issue 的 plan 存档。纯历史记录。
 
+`run_log.md` 负责记录整次 run 的目标、执行与结果；本目录只保留单个 issue 的归档与反思。
+
 ## 命名规范
 
 - `001-feature-name.md`

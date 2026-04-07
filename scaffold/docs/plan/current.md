@@ -3,7 +3,7 @@
 ## 当前状态
 
 - 当前无进行中的 issue。
-- 开始新任务时，再由 agent 或人类将本文件改写为具体任务计划，并先创建 `issue_test/<issue_id>.sh`。
+- 开始新任务时，再由 agent 或人类将本文件改写为具体任务计划，并先创建 `.agent-workflow/issue_test/<issue_id>.sh`。
 
 ## 启动新任务时需要补充
 
@@ -15,5 +15,5 @@
 ## 维护说明
 
 - 该文件只记录当前正在执行的一个 issue。
-- 对应测试脚本固定放在 `issue_test/<issue_id>.sh`，完成任务后继续保留在 `issue_test/` 中。
-- 任务完成后，将本文件归档到 `docs/plan/archive/`，然后重置为“当前无进行中的 issue”状态。
+- 对应测试脚本固定放在 `.agent-workflow/issue_test/<issue_id>.sh`，完成任务后继续保留在 `.agent-workflow/issue_test/` 中。
+- 任务完成后，将本文件归档到 `.agent-workflow/docs/plan/archive/`，然后重置为“当前无进行中的 issue”状态。

@@ -2,7 +2,7 @@
 
 > This document answers: What does the project look like right now?
 >
-> Record facts only — no future intentions. Future intentions belong in `docs/plan/backlog.md`.
+> Record facts only — no future intentions. Future intentions belong in `.agent-workflow/docs/plan/backlog.md`.
 
 ## Last Updated
 

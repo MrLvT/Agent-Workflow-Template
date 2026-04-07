@@ -38,6 +38,6 @@ src/
 
 ## Maintenance Rules
 
-1. Record a decision in `docs/decisions.md` before changing a boundary.
+1. Record a decision in `.agent-workflow/docs/decisions.md` before changing a boundary.
 2. Lint rules must be updated in sync with boundary changes.
 3. An architecture change is not complete until the lint rules are updated.

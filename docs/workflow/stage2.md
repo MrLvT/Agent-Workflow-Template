@@ -72,6 +72,15 @@
 
 > 注意：overview.md 的范围变更也必须在此步骤追加到 decisions.md。
 
+### Step 6.5：更新 run_log
+
+更新 `docs/run_log.md` 中当前进行中的 run 记录，至少补充：
+
+- 本次 run 当前要解决的 issue / 问题
+- 新建或切换的工作分支
+- 新建的 `issue_test/<issue_id>.sh`
+- 已写入 `docs/plan/current.md` 的执行计划
+
 ### Step 7：更新 stage.lock
 
 ```yaml

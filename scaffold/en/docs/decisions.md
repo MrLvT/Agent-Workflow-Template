@@ -38,9 +38,9 @@
 - Date: __INIT_DATE__
 - Status: Accepted
 - Background: __INIT_BACKGROUND__
-- Decision: Adopt the Agent Workflow Template structure: AGENTS.md + docs/ + issue_test/ + scripts/.
-- Rationale: Document-driven workflow architecture where each document has a single, decoupled responsibility. The state machine provides clear Stage transition logic. issue_test/ + scripts/run_issue_tests.sh provides deterministic cumulative regression checks by issue. build_context.py enforces that the agent executes under the correct context.
+- Decision: Adopt the Agent Workflow Template structure: .agent-workflow/AGENTS.md + .agent-workflow/docs/ + .agent-workflow/issue_test/ + .agent-workflow/scripts/.
+- Rationale: Document-driven workflow architecture where each document has a single, decoupled responsibility. The state machine provides clear Stage transition logic. .agent-workflow/issue_test/ + .agent-workflow/scripts/run_issue_tests.sh provides deterministic cumulative regression checks by issue. build_context.py enforces that the agent executes under the correct context.
 - Rejected alternatives:
   - Pure prompt constraints: lacks persistence and auditable process documentation
   - Single README carrying all rules: hard to maintain, cannot be structurally referenced
-- Impact: All subsequent agent development follows this documentation system. stage.lock records global state, build_context.py mechanically assembles context, and issue_test/ continuously accumulates historical regression scripts.
+- Impact: All subsequent agent development follows this documentation system. stage.lock records global state, build_context.py mechanically assembles context, and .agent-workflow/issue_test/ continuously accumulates historical regression scripts.

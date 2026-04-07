@@ -2,6 +2,8 @@
 
 This directory stores completed issue plans and reflection records.
 
+`run_log.md` records whole-run goals, work, and results; this directory keeps only per-issue archives and reflections.
+
 ## File Naming
 
 - `<issue_id>.md` — archived `current.md` for a completed issue

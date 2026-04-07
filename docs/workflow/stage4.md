@@ -49,6 +49,14 @@ bash scripts/deliver_pr.sh ensure --base <base-branch>
 
 在 `docs/progress.md` 中记录本次完成的功能/修复。
 
+### Step 5.5：更新 run_log
+
+在 `docs/run_log.md` 中给当前 run 追加本 issue 的执行事实，至少包含：
+
+- 完成了哪个 issue / 修复
+- 做了哪些关键动作（代码、测试、交付）
+- 实际结果（测试通过、生成了本地 commit、PR URL 或 handoff）
+
 ### Step 6：归档 current.md
 
 ```bash

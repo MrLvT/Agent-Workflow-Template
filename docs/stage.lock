@@ -1,5 +1,5 @@
 current: stage3
-status: in_progress
+status: failed
 previous: stage1
 meta:
   issue_id: null

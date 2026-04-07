@@ -15,7 +15,7 @@ Mapped to fixed fields:
 
 - Goal: what needs to be accomplished this time
 - Scope: what is changed, what is affected
-- Acceptance: what result counts as done — ideally maps to `issue_test/<issue_id>.sh`
+- Acceptance: what result counts as done — ideally maps to `.agent-workflow/issue_test/<issue_id>.sh`
 - Source: where this task came from (e.g. bug, user feedback, code comment, product requirement, documentation gap)
 
 ## Recommended Templates
@@ -51,11 +51,11 @@ Suitable for cross-module tasks, those with many dependencies, or those with mor
 ## Writing Rules
 
 1. Write "results" in the title, not "process".
-2. Backlog defines only "what to do", not "how to do it" — specific execution steps go in `docs/plan/current.md`.
+2. Backlog defines only "what to do", not "how to do it" — specific execution steps go in `.agent-workflow/docs/plan/current.md`.
 3. Each entry should correspond to one closeable issue; split overly large tasks first.
 4. "Acceptance" must be deterministic and ideally convertible to an issue test — not "looks about right".
 5. When information is incomplete, write at least "goal + scope + source" to avoid Stage 2 being unable to select a task.
-6. If a task exceeds the current scope in `docs/overview.md`, update the scope definition first, then proceed.
+6. If a task exceeds the current scope in `.agent-workflow/docs/overview.md`, update the scope definition first, then proceed.
 
 ## Priority Definitions
 
@@ -66,7 +66,7 @@ Suitable for cross-module tasks, those with many dependencies, or those with mor
 ## Maintenance Notes
 
 - Humans and agents may both add to the backlog.
-- Stage 2 selects one `- [ ]` entry from here and generates an `issue_id`, `issue_test/<issue_id>.sh`, and `docs/plan/current.md`.
+- Stage 2 selects one `- [ ]` entry from here and generates an `issue_id`, `.agent-workflow/issue_test/<issue_id>.sh`, and `.agent-workflow/docs/plan/current.md`.
 - Stage 4 marks the corresponding entry `- [x]` after completing delivery.
 
 ## P0 (Highest Priority)

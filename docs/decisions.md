@@ -165,3 +165,14 @@
   - 保留 `codex` 特判：会继续制造不同 CLI 之间的隐式行为差异
   - 仅更新 README、不改脚本：文档与真实行为会继续不一致
 - 影响：今后使用 `codex` 初始化时，即使默认切到 `--ultra`，也仍会执行独立 docs review；如更在意速度，可显式传 `--no-docs-review`。
+
+## D-013 默认连续运行多个 issue 闭环
+- 日期：2026-04-05
+- 状态：Accepted
+- 背景：D-010 将运行边界固定为“单次 run 只完成一个 issue 闭环”，虽然边界清晰，但会让无人值守场景频繁停在 Stage 1，必须等待人工重新触发下一轮 run。
+- 决策：将默认运行模型改为“无错误且无 blocker 时连续运行”。当 Stage 6 路径 A 写回 `current: stage1`、`status: done`、`previous: stage6` 后，Stage 1 不再把它视为成功终止点，而是继续执行 blockers/current plan 检查，并在满足条件时自动路由到下一个 Stage 2 或 Stage 3。
+- 原因：这样可以减少人工重启次数，让 agent 在 backlog 连续可处理时持续推进，同时保留 `status == failed`、blockers 与质量门作为人工介入边界。
+- 被拒绝方案：
+  - 继续保持单 issue run：批量推进效率低，人工重启成本高
+  - 完全去掉 Stage 1 的统一路由入口：会削弱 blocker 检查和状态一致性
+- 影响：默认行为更适合连续自动执行；若团队仍希望“一次 run 只做一个 issue”，需要在自定义约束中重新加回该限制。
