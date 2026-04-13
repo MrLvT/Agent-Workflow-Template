@@ -45,7 +45,6 @@ meta:
 ```
 
 - 写回上述状态后，进入 Step 5 做最终远端交付
-- 先单独 git commit：`chore(stage): stage6 → stage1 [done]`
 - 写回后由 Stage 1 判断是继续领取 backlog，还是以本次结果结束当前 run
 
 **路径 B（改了代码）：**
@@ -59,7 +58,7 @@ meta:
   # issue_id 保留，走完整 S3 → S4 → S5 闭环
 ```
 
-- 单独 git commit：`chore(stage): stage6 → stage3 [code-changed]`
+- 若团队跟踪 workflow 状态文件，可按团队约定单独提交；默认只更新本地状态即可
 
 ### Step 5：最终远端交付（仅路径 A）
 
@@ -94,9 +93,7 @@ bash scripts/deliver_pr.sh merge --merge-method squash
 - [ ] `docs/decisions.md` 已处理（compaction 或确认不需要）
 - [ ] `stage.lock` 已按路径 A 或路径 B 正确更新
 - [ ] 若走路径 A：已回到 `stage1/done`，并将其视为本次 run 的成功终点
-- [ ] `stage.lock` 更新已单独 git commit
-  - 路径 A 格式：`chore(stage): stage6 → stage1 [done]`
-  - 路径 B 格式：`chore(stage): stage6 → stage3 [code-changed]`
+- [ ] `stage.lock` 已按路径更新；若团队跟踪 workflow 状态文件，再按团队约定提交
 - [ ] 若走路径 A，已满足以下三者之一：
   - PR 已直接 merge
   - PR 已启用 auto-merge

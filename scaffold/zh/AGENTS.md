@@ -54,6 +54,7 @@ python .agent-workflow/scripts/build_context.py --stage <current>
 | `.agent-workflow/docs/overview.md` | 项目目标与范围 |
 | `.agent-workflow/docs/architecture.md` | 模块划分 + 依赖边界 |
 | `.agent-workflow/docs/conventions.md` | 命名 + 代码风格 + git 规范 |
+| `.agent-workflow/docs/environment.md` | 运行环境、调度器和前置步骤事实 |
 | `.agent-workflow/docs/run_log.md` | 跨 issue 的 run 级执行日志 |
 | `.agent-workflow/docs/decisions.md` | 时间线追加式设计决策日志 |
 | `.agent-workflow/docs/quality.md` | Definition of Done + 验证方法 |
@@ -74,7 +75,7 @@ python .agent-workflow/scripts/build_context.py --stage <current>
 1. 启动协议三步必须执行，不得跳过。
 2. Stage 判断不明确时，以 `stage.lock` 为准，不得自行猜测。
 3. 每个 Stage 结束前必须完成该 Stage 的 Exit Checklist，不得跳过。
-4. `stage.lock` 每次更新必须单独 git commit，不得与业务代码混提。格式：`chore(stage): <from> → <to> [<reason>]`，例：`chore(stage): stage2 → stage3 [done]`、`chore(stage): stage3 [failed]`。
+4. `.agent-workflow/` 默认作为本地工作流状态目录使用；`stage.lock`、`current.md`、`blockers.md`、archive、issue tests 与 workflow 文档默认不进入业务仓库 git 历史。若团队明确选择跟踪这些文件，才允许提交，且应与业务代码分开管理。
 5. 架构边界违规必须先修复。若 `.agent-workflow/docs/architecture.md` 中标注"由静态检查或 CI 强制执行"，则以对应工具输出为准；若尚未配置自动检查，则依赖 agent 自觉遵守，并在 `.agent-workflow/docs/decisions.md` 记录该约束仍为手动执行状态。
 6. 涉及凭据、认证、敏感文件前先读 `.agent-workflow/docs/security.md`。
 7. 重要技术取舍必须追加到 `.agent-workflow/docs/decisions.md`（禁止覆写历史条目）。
@@ -83,3 +84,5 @@ python .agent-workflow/scripts/build_context.py --stage <current>
 10. 遇到无法自行解决的问题，写入 `.agent-workflow/docs/blockers.md` 后停止，不得绕过阻塞继续执行。
 11. Stage 4 负责创建或更新 PR，不负责最终 merge；Stage 6 才负责最终 merge / auto-merge。若 Stage 4 或 Stage 6 的远端交付受网络、权限或宿主环境限制阻塞，可以退化为“本地交付 / merge handoff”，但必须把本地 commit hash、失败命令和下一步人工动作写进归档记录。
 12. `.agent-workflow/docs/run_log.md` 必须持续维护：Stage 2 写清目标，Stage 4/6 补具体执行与结果，run 停止时补齐结束时间与最终状态。
+13. 若后续 run 发现新的环境事实（如 Slurm、conda、CUDA、登录节点限制、必须通过调度器执行等），必须立即更新 `.agent-workflow/docs/environment.md`，不要只停留在聊天上下文。
+14. 任何实验、评测或 smoke test 运行后，必须把结果存入 `results/issue<issue_id>/`，并在 `results/issue<issue_id>/SUMMARY.md` 追加总结，至少记录实验设定、模型/工作流、input length、结果与尝试分析。

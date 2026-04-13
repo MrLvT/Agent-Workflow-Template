@@ -42,6 +42,23 @@
 - 标题格式：与 commit message 一致
 - 描述必填项：背景、方案、测试、风险
 
+## 实验结果约定
+
+- 若当前 issue 运行了实验、评测或 smoke test，结果目录固定为：`results/issue<issue_id>/`
+- 目录示例：`results/issue1-smoke-test/`
+- 该目录下必须维护：`results/issue<issue_id>/SUMMARY.md`
+- 每次实验后都要在 `SUMMARY.md` 追加一节，至少包含：
+  - 实验名称 / 时间
+  - 目的或假设
+  - 模型与关键设定
+  - 工作流 / pipeline
+  - input length、batch size、seed、数据切片等关键输入条件
+  - 执行命令、环境、硬件或调度信息
+  - 原始日志 / 产物路径
+  - 主要结果与指标
+  - 对结果的尝试分析（包括失败或不确定结论）
+- 同一 issue 的多次实验可以写入同一个 `SUMMARY.md`，原始日志、图表、JSON、CSV 等产物放在同目录或其子目录中
+
 ## 维护规则
 
 1. 风格冲突时，以本文件为准。

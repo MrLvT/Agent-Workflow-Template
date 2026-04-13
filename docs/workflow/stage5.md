@@ -60,7 +60,7 @@ previous: stage5
 - [ ] `docs/wisdom.md` 已处理（追加或明确写"无"在 REFLECT 中）
 - [ ] `docs/antipatterns.md` 已处理（追加或明确写"无"在 REFLECT 中）
 - [ ] `stage.lock` 已更新（current: stage6）
-- [ ] `stage.lock` 更新已单独 git commit（格式：`chore(stage): stage5 → stage6 [done]`）
+- [ ] `stage.lock` 已更新；若团队跟踪 workflow 状态文件，再按团队约定单独提交
 
 ## Failure Path
 

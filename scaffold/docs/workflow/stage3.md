@@ -37,6 +37,12 @@ bash .agent-workflow/issue_test/<meta.issue_id>.sh
 2. 追加一条决策到 `.agent-workflow/docs/decisions.md`，说明为什么需要这个架构调整
 3. 如果调整涉及 lint 规则，同步更新对应规则文件
 
+实现过程中如发现新的环境事实或运行前提（例如必须走 Slurm、需要 `conda activate agent`、只能在 GPU/计算节点执行、需要特定模块/环境变量）：
+
+1. 立即更新 `.agent-workflow/docs/environment.md`
+2. 若该事实会改变团队默认执行方式或验证方式，追加一条决策到 `.agent-workflow/docs/decisions.md`
+3. 在 `.agent-workflow/docs/run_log.md` 记录这次发现与更新
+
 ### Step 4：运行完整 issue 回归套件
 
 ```bash
@@ -45,6 +51,23 @@ bash .agent-workflow/scripts/run_issue_tests.sh
 
 - FAIL → 修复并重跑，直到全部通过
 - 同一错误修复超过 3 次未解决 → 进入 **Failure Path A**
+
+### Step 4.5：记录实验结果（如有）
+
+如果本阶段运行了实验、评测或 smoke test：
+
+- 结果目录固定为 `results/issue<meta.issue_id>/`
+- 每次实验后，必须在 `results/issue<meta.issue_id>/SUMMARY.md` 追加一节总结
+- 每条总结至少包含：
+  - 实验名称 / 时间
+  - 实验目的或假设
+  - 模型与关键设定
+  - 工作流 / pipeline
+  - input length、batch size、seed、数据切片等关键输入条件
+  - 执行命令、环境、硬件或调度信息
+  - 原始日志 / 产物路径
+  - 主要结果与指标
+  - 对结果的尝试分析（即使结果失败或暂时无法解释，也要写清）
 
 ### Step 5：更新 stage.lock
 
@@ -60,9 +83,11 @@ previous: stage3
 - [ ] `bash .agent-workflow/scripts/run_issue_tests.sh --exclude .agent-workflow/issue_test/<meta.issue_id>.sh` 已通过
 - [ ] `.agent-workflow/issue_test/<meta.issue_id>.sh` 已在实现前执行过，结果与 issue 目标一致，且失败时输出了足够诊断信息
 - [ ] 架构边界有变化时，`.agent-workflow/docs/architecture.md` 已更新并追加 decisions.md
+- [ ] 环境事实有变化时，`.agent-workflow/docs/environment.md` 已更新；若影响默认执行方式，已追加 decisions.md
+- [ ] 若本 issue 运行了实验、评测或 smoke test，`results/issue<meta.issue_id>/SUMMARY.md` 已补齐每次实验的总结
 - [ ] `bash .agent-workflow/scripts/run_issue_tests.sh` 输出 `ISSUE TESTS: PASS`
 - [ ] `stage.lock` 已更新（current: stage4）
-- [ ] `stage.lock` 更新已单独 git commit（格式：`chore(stage): stage3 → stage4 [done]`）
+- [ ] `stage.lock` 已更新；若团队跟踪 `.agent-workflow/`，再按团队约定单独提交状态文件
 
 ## Failure Path
 

@@ -50,7 +50,7 @@ Read `.agent-workflow/docs/plan/current.md`:
 - [ ] `.agent-workflow/docs/run_log.md` has been read and the current run entry was reused or created
 - [ ] Determined whether this run should "stop" or "continue routing"
 - [ ] If continuing: `stage.lock` updated (current points to next Stage, status: in_progress)
-- [ ] If continuing: `stage.lock` update committed separately (format: `chore(stage): stage1 → <next> [done]`)
+- [ ] If continuing: `stage.lock` has been updated; only make a separate status commit when the team explicitly tracks `.agent-workflow/`
 - [ ] If continuing: handled the `current: stage1`, `status: done`, `previous: stage6` continuous-run case correctly
 
 ## Failure Path

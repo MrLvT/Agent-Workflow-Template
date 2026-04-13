@@ -46,6 +46,23 @@ bash scripts/run_issue_tests.sh
 - FAIL → 修复并重跑，直到全部通过
 - 同一错误修复超过 3 次未解决 → 进入 **Failure Path A**
 
+### Step 4.5：记录实验结果（如有）
+
+如果本阶段运行了实验、评测或 smoke test：
+
+- 结果目录固定为 `results/issue<meta.issue_id>/`
+- 每次实验后，必须在 `results/issue<meta.issue_id>/SUMMARY.md` 追加一节总结
+- 每条总结至少包含：
+  - 实验名称 / 时间
+  - 实验目的或假设
+  - 模型与关键设定
+  - 工作流 / pipeline
+  - input length、batch size、seed、数据切片等关键输入条件
+  - 执行命令、环境、硬件或调度信息
+  - 原始日志 / 产物路径
+  - 主要结果与指标
+  - 对结果的尝试分析（即使结果失败或暂时无法解释，也要写清）
+
 ### Step 5：更新 stage.lock
 
 ```yaml
@@ -60,9 +77,10 @@ previous: stage3
 - [ ] `bash scripts/run_issue_tests.sh --exclude issue_test/<meta.issue_id>.sh` 已通过
 - [ ] `issue_test/<meta.issue_id>.sh` 已在实现前执行过，结果与 issue 目标一致，且失败时输出了足够诊断信息
 - [ ] 架构边界有变化时，`docs/architecture.md` 已更新并追加 decisions.md
+- [ ] 若本 issue 运行了实验、评测或 smoke test，`results/issue<meta.issue_id>/SUMMARY.md` 已补齐每次实验的总结
 - [ ] `bash scripts/run_issue_tests.sh` 输出 `ISSUE TESTS: PASS`
 - [ ] `stage.lock` 已更新（current: stage4）
-- [ ] `stage.lock` 更新已单独 git commit（格式：`chore(stage): stage3 → stage4 [done]`）
+- [ ] `stage.lock` 已更新；若团队跟踪 workflow 状态文件，再按团队约定单独提交
 
 ## Failure Path
 

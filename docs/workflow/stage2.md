@@ -65,6 +65,8 @@
 - 明确记录两次验证命令：
   - 实现前历史回归：`bash scripts/run_issue_tests.sh --exclude issue_test/<issue_id>.sh`
   - 实现后完整回归：`bash scripts/run_issue_tests.sh`
+- 若当前任务包含实验、评测或 smoke test，预先记录结果目录：`results/issue<issue_id>/`
+- 若当前任务包含实验、评测或 smoke test，预先记录总结文件：`results/issue<issue_id>/SUMMARY.md`
 
 ### Step 6：记录技术决策（如有）
 
@@ -98,9 +100,10 @@ meta:
 - [ ] `issue_test/<issue_id>.sh` 已创建，覆盖当前 issue 的目标行为，且失败时会输出诊断信息
 - [ ] `docs/plan/current.md` 非空，有可勾选步骤
 - [ ] `docs/plan/current.md` 已记录当前 issue 测试脚本路径和两次验证命令
+- [ ] 若当前 issue 包含实验、评测或 smoke test，`docs/plan/current.md` 已记录 `results/issue<issue_id>/` 与 `SUMMARY.md`
 - [ ] `stage.lock.meta.issue_id` 已写入
 - [ ] `stage.lock` 已更新（current: stage3）
-- [ ] `stage.lock` 更新已单独 git commit（格式：`chore(stage): stage2 → stage3 [done]`）
+- [ ] `stage.lock` 已更新；若团队跟踪 workflow 状态文件，再按团队约定单独提交
 
 ## Failure Path
 

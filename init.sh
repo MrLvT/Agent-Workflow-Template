@@ -104,6 +104,7 @@ MANAGED_FILES=(
     "docs/overview.md"
     "docs/architecture.md"
     "docs/conventions.md"
+    "docs/environment.md"
     "docs/decisions.md"
     "docs/quality.md"
     "docs/security.md"
@@ -548,6 +549,7 @@ ensure_scaffold_is_valid() {
         "docs/workflow/stage6.md"
         "docs/wisdom.md"
         "docs/antipatterns.md"
+        "docs/environment.md"
         "docs/plan/current.md"
         "issue_test/README.md"
         "scripts/build_context.py"
@@ -656,7 +658,7 @@ run_cli_prompt() {
         codex)
             local codex_args=(
                 "exec"
-                "--sandbox" "workspace-write"
+                "--sandbox" "danger-full-access"
                 "--color" "never"
                 "--model" "$MODEL"
                 "-c" "approval_policy=\"never\""
@@ -892,6 +894,7 @@ copy_template_skeleton() {
     copy_managed_file "docs/overview.md"
     copy_managed_file "docs/architecture.md"
     copy_managed_file "docs/conventions.md"
+    copy_managed_file "docs/environment.md"
     copy_managed_file "docs/quality.md"
     copy_managed_file "docs/security.md"
     copy_managed_file "docs/progress.md"

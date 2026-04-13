@@ -60,7 +60,7 @@ previous: stage5
 - [ ] `.agent-workflow/docs/wisdom.md` handled (appended or explicitly written "none" in REFLECT)
 - [ ] `.agent-workflow/docs/antipatterns.md` handled (appended or explicitly written "none" in REFLECT)
 - [ ] `stage.lock` updated (current: stage6)
-- [ ] `stage.lock` update committed separately (format: `chore(stage): stage5 → stage6 [done]`)
+- [ ] `stage.lock` updated; only create a separate status commit if the team explicitly tracks `.agent-workflow/`
 
 ## Failure Path
 

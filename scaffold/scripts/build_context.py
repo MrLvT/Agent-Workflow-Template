@@ -27,6 +27,7 @@ GLOBAL_FILES = [
     "docs/overview.md",
     "docs/architecture.md",
     "docs/conventions.md",
+    "docs/environment.md",
     "docs/run_log.md",
     "issue_test/README.md",
 ]

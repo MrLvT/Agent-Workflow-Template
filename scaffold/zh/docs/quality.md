@@ -17,6 +17,12 @@
 - [ ] 提交前已运行完整回归：`bash .agent-workflow/scripts/run_issue_tests.sh`
 - [ ] 若修改了历史 `.agent-workflow/issue_test/*.sh`，已记录原因与影响范围
 
+### 实验结果留痕
+
+- [ ] 若本 issue 运行了实验、评测或 smoke test，结果已存入 `results/issue<issue_id>/`
+- [ ] `results/issue<issue_id>/SUMMARY.md` 已存在，并且每次实验都有单独总结条目
+- [ ] 每条实验总结至少记录：实验设定、模型/工作流、input length、关键输入条件、命令/环境、结果指标、原始产物路径、尝试分析
+
 ### 文档同步
 
 - [ ] 变更已同步到相关文档
@@ -67,3 +73,4 @@ bash .agent-workflow/scripts/run_issue_tests.sh --exclude .agent-workflow/issue_
 1. 新的质量门槛必须先写入本文件，再纳入 CI。
 2. 本文件是提交前强制自查列表，不应弱化。
 3. 每个 issue 都必须新增或绑定一个可复现的 `.agent-workflow/issue_test/<issue_id>.sh`。
+4. 只要 issue 里包含实验或评测，就必须维护 `results/issue<issue_id>/SUMMARY.md`。

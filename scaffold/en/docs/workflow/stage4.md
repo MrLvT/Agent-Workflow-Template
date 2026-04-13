@@ -57,6 +57,14 @@ Append the current issue's factual execution summary to `.agent-workflow/docs/ru
 - The key actions taken (code, tests, delivery)
 - The tangible outcome (tests passed, local commit created, PR URL or handoff)
 
+### Step 5.8: Check experiment result directory (if any)
+
+If the current issue ran experiments, evaluations, or smoke tests:
+
+- Confirm the result directory is `results/issue<meta.issue_id>/`
+- Confirm `results/issue<meta.issue_id>/SUMMARY.md` exists
+- Confirm the summary covers every experiment and includes setup, model/workflow, input length, result, and attempted analysis
+
 ### Step 6: Archive current.md
 
 ```bash
@@ -68,6 +76,7 @@ cp .agent-workflow/docs/plan/current.md .agent-workflow/docs/plan/archive/<meta.
 - The archive must include the delivery status:
   - PR created or reused: write the PR URL, and note "Stage 6 will attempt the final merge"
   - Local delivery + manual handoff: write the local commit hash, reason for failure, and human next steps
+- If the current issue ran experiments, evaluations, or smoke tests: record the result directory `results/issue<meta.issue_id>/` and the `SUMMARY.md` path
 - Do not move or delete `.agent-workflow/issue_test/<meta.issue_id>.sh`; it must remain in `.agent-workflow/issue_test/` to participate in future regressions
 
 ### Step 7: Clean up
@@ -89,6 +98,7 @@ cp .agent-workflow/docs/plan/current.md .agent-workflow/docs/plan/archive/<meta.
 2. Test script path and coverage goal for the current issue
 3. Step-by-step checkable execution steps
 4. Verification records (must include at least the historical regression baseline and full regression result)
+5. If experiments, evaluations, or smoke tests are involved: result directory `results/issue<issue_id>/` and summary file `results/issue<issue_id>/SUMMARY.md`
 
 ## Maintenance Notes
 
@@ -117,12 +127,13 @@ previous: stage4
   - The archive records "local delivery + manual handoff" with the commit hash, reason, and next steps
 - [ ] `.agent-workflow/docs/progress.md` updated
 - [ ] `.agent-workflow/docs/run_log.md` appended with factual work and results for this issue
+- [ ] If this issue ran experiments, evaluations, or smoke tests, `results/issue<meta.issue_id>/SUMMARY.md` exists and is complete
 - [ ] `.agent-workflow/docs/plan/archive/<meta.issue_id>.md` created
 - [ ] `.agent-workflow/issue_test/<meta.issue_id>.sh` still present in `.agent-workflow/issue_test/`
 - [ ] `.agent-workflow/docs/plan/current.md` cleared
 - [ ] Corresponding backlog entry marked `[x]`
 - [ ] `stage.lock` updated (current: stage5)
-- [ ] `stage.lock` update committed separately (format: `chore(stage): stage4 → stage5 [done]`)
+- [ ] `stage.lock` updated; only create a separate status commit if the team explicitly tracks `.agent-workflow/`
 
 ## Failure Path
 

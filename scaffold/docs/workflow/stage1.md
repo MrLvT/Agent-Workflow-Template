@@ -50,7 +50,7 @@
 - [ ] `.agent-workflow/docs/run_log.md` 已读取并复用或创建当前 run 记录
 - [ ] 已确定本次 run 是“停止”还是“继续路由”
 - [ ] 若继续路由：`stage.lock` 已更新（current 指向下一个 Stage，status: in_progress）
-- [ ] 若继续路由：`stage.lock` 更新已单独 git commit（格式：`chore(stage): stage1 → <next> [done]`）
+- [ ] 若继续路由：`stage.lock` 已更新；若团队跟踪 `.agent-workflow/`，再按团队约定单独提交状态文件
 - [ ] 若继续路由：已正确处理 `current: stage1`、`status: done`、`previous: stage6` 的连续运行场景
 
 ## Failure Path

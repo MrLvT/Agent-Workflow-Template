@@ -122,13 +122,15 @@ bash .agent-workflow/scripts/run_issue_tests.sh --exclude .agent-workflow/issue_
 
 也就是说，`backlog.md` 是开发入口，`current.md` 是执行中计划，`issue_test` 是验收脚本。
 
+如果当前 issue 包含实验、评测或 smoke test，实验结果必须写入 `results/issue<issue_id>/`，并在 `results/issue<issue_id>/SUMMARY.md` 中为每次实验追加总结，记录模型、工作流、input length、关键设定、结果与尝试分析。
+
 ### 3. `init.sh` 实际做了什么
 
 `init.sh` 不是简单复制文件。它把模板初始化分成四类动作：
 
 | 类别 | 处理方式 | 文件 |
 | --- | --- | --- |
-| 固定骨架 | 直接从 `scaffold/<lang>/` 复制 | `.agent-workflow/docs/stage.lock`、`.agent-workflow/docs/run_log.md`、`.agent-workflow/docs/workflow/stage*.md`、`.agent-workflow/docs/wisdom.md`、`.agent-workflow/docs/antipatterns.md`、`.agent-workflow/docs/blockers.md`、`.agent-workflow/docs/plan/current.md`、`.agent-workflow/docs/plan/archive/README.md`、`.agent-workflow/issue_test/README.md`、`.agent-workflow/scripts/build_context.py`、`.agent-workflow/scripts/run_issue_tests.sh`、`.agent-workflow/scripts/deliver_pr.sh` |
+| 固定骨架 | 直接从 `scaffold/<lang>/` 复制 | `.agent-workflow/docs/stage.lock`、`.agent-workflow/docs/run_log.md`、`.agent-workflow/docs/environment.md`、`.agent-workflow/docs/workflow/stage*.md`、`.agent-workflow/docs/wisdom.md`、`.agent-workflow/docs/antipatterns.md`、`.agent-workflow/docs/blockers.md`、`.agent-workflow/docs/plan/current.md`、`.agent-workflow/docs/plan/archive/README.md`、`.agent-workflow/issue_test/README.md`、`.agent-workflow/scripts/build_context.py`、`.agent-workflow/scripts/run_issue_tests.sh`、`.agent-workflow/scripts/deliver_pr.sh` |
 | AI 填充 | 先复制模板，再调用 AI 按目标仓库事实填充 | `.agent-workflow/docs/overview.md`、`.agent-workflow/docs/architecture.md`、`.agent-workflow/docs/conventions.md`、`.agent-workflow/docs/quality.md`、`.agent-workflow/docs/security.md`、`.agent-workflow/docs/progress.md`、`.agent-workflow/docs/plan/backlog.md` |
 | 脚本直写 | 复制后由脚本替换占位符 | `.agent-workflow/docs/decisions.md` 中的 `D-001` 日期和初始化背景 |
 | 延后复制 | 在 AI 填充结束后再复制，避免影响初始化 prompt | `.agent-workflow/AGENTS.md` |
@@ -180,7 +182,7 @@ Agent-Workflow-Template/
 | --- | --- | --- |
 | Bootstrap 层 | `init.sh`、`scaffold/` | 初始化目标仓库，复制骨架并填充首批文档 |
 | Control 层 | `.agent-workflow/AGENTS.md`、`.agent-workflow/docs/stage.lock`、`.agent-workflow/docs/workflow/stage*.md` | 定义 agent 启动协议、当前状态和 Stage 跳转规则 |
-| Context 层 | `.agent-workflow/docs/overview.md`、`architecture.md`、`conventions.md`、`quality.md`、`security.md`、`progress.md`、`run_log.md`、`decisions.md`、`blockers.md`、`wisdom.md`、`antipatterns.md`、`.agent-workflow/docs/plan/*` | 提供项目事实、规则、计划、运行历史和阻塞信息 |
+| Context 层 | `.agent-workflow/docs/overview.md`、`architecture.md`、`conventions.md`、`environment.md`、`quality.md`、`security.md`、`progress.md`、`run_log.md`、`decisions.md`、`blockers.md`、`wisdom.md`、`antipatterns.md`、`.agent-workflow/docs/plan/*` | 提供项目事实、规则、环境前提、计划、运行历史和阻塞信息 |
 | Harness 层 | `.agent-workflow/scripts/build_context.py`、`.agent-workflow/issue_test/*.sh`、`.agent-workflow/scripts/run_issue_tests.sh` | 机械装载上下文，机械执行累积回归 |
 | Delivery 层 | `git commit`、`git push`、`.agent-workflow/scripts/deliver_pr.sh`、`.agent-workflow/docs/plan/archive/*` | 把变更转成可交付结果，并沉淀归档 |
 
@@ -258,7 +260,7 @@ flowchart LR
 
 - 不允许在同一次 run 里连续领取多个 backlog issue。
 - 任何 Stage 失败都要写 `.agent-workflow/docs/blockers.md` 并停止。
-- 每次 `stage.lock` 更新都要求单独 git commit。
+- 默认只需更新 `stage.lock` 本地状态；只有团队明确跟踪 workflow 状态文件时，才需要单独提交。
 - 新任务必须先进入 `.agent-workflow/docs/plan/backlog.md`，再由 Stage 2 转成 `current.md` 和 `.agent-workflow/issue_test/<issue_id>.sh`。
 
 ## Stage 输入模型
@@ -433,7 +435,7 @@ flowchart TD
 - 无错误且无 blocker 时，可在同一次 run 中连续处理多个 issue。
 - 每个 issue 都必须绑定一个 `.agent-workflow/issue_test/<issue_id>.sh`。
 - 历史 issue tests 默认长期保留，不允许靠删除或弱化旧测试掩盖回归。
-- 每次 `.agent-workflow/docs/stage.lock` 更新都必须单独 commit。
+- 每次 `.agent-workflow/docs/stage.lock` 更新默认只维护本地状态；只有团队明确跟踪 `.agent-workflow/` 时，才需要单独提交。
 - 遇到 blocker 必须写 `.agent-workflow/docs/blockers.md` 并停止。
 - 文档不是说明书，而是 agent 的运行输入。
 

@@ -11,6 +11,7 @@ Check each document in `.agent-workflow/docs/` against the code implementation a
 - Documented behavior does not match actual code behavior
 - Documented directory structure or module layout does not match the code
 - Completed features listed in `.agent-workflow/docs/progress.md` do not match the code
+- Runtime environment definitions in `.agent-workflow/docs/environment.md` do not match how the project actually has to be executed
 
 ### Step 2: Resolve discrepancies
 
@@ -45,7 +46,6 @@ meta:
 ```
 
 - After writing the state above, proceed to Step 5 for the final remote delivery
-- Commit separately first: `chore(stage): stage6 → stage1 [done]`
 - After writing this state, let Stage 1 decide whether to continue with backlog routing or end the current run
 
 **Path B (code changed):**
@@ -59,7 +59,7 @@ meta:
   # issue_id is kept; run the full S3 → S4 → S5 loop
 ```
 
-- Commit separately: `chore(stage): stage6 → stage3 [code-changed]`
+- If the team tracks `.agent-workflow/`, it may commit the status file separately; by default updating local workflow state is enough
 
 ### Step 5: Final remote delivery (Path A only)
 
@@ -91,13 +91,12 @@ Append the current issue's final delivery outcome to `.agent-workflow/docs/run_l
 ## Exit Checklist
 
 - [ ] Documentation and code are aligned; no known discrepancies
+- [ ] `.agent-workflow/docs/environment.md` matches the real execution environment; new facts have been written back
 - [ ] `.agent-workflow/docs/decisions.md` handled (compacted or confirmed no compaction needed)
 - [ ] `.agent-workflow/docs/run_log.md` updated with the final delivery outcome for this issue
 - [ ] `stage.lock` correctly updated following Path A or Path B
 - [ ] If Path A: returned to `stage1/done` and treated as the successful endpoint of this run
-- [ ] `stage.lock` update committed separately
-  - Path A format: `chore(stage): stage6 → stage1 [done]`
-  - Path B format: `chore(stage): stage6 → stage3 [code-changed]`
+- [ ] `stage.lock` updated for Path A or Path B; only create a status commit when the team explicitly tracks `.agent-workflow/`
 - [ ] If Path A, one of the following is satisfied:
   - PR directly merged
   - PR has auto-merge enabled

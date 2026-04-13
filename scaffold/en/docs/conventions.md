@@ -42,6 +42,23 @@
 - Title format: matches commit message format
 - Required description fields: background, approach, testing, risks
 
+## Experiment Result Convention
+
+- If the current issue runs experiments, evaluations, or smoke tests, the canonical result directory is `results/issue<issue_id>/`
+- Example directory: `results/issue1-smoke-test/`
+- This directory must contain `results/issue<issue_id>/SUMMARY.md`
+- After each experiment, append one section to `SUMMARY.md` with at least:
+  - Experiment name / time
+  - Goal or hypothesis
+  - Model and key settings
+  - Workflow / pipeline
+  - Key input conditions such as input length, batch size, seed, and data slice
+  - Command, environment, hardware, or scheduler information
+  - Raw log / artifact paths
+  - Primary result and metrics
+  - Attempted analysis of the result, including failed or inconclusive outcomes
+- Multiple experiments from the same issue may share one `SUMMARY.md`; raw logs, plots, JSON, CSV, and other artifacts should live in the same directory or its subdirectories
+
 ## Maintenance Rules
 
 1. When style conflicts arise, this document takes precedence.

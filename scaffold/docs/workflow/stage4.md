@@ -57,6 +57,14 @@ bash .agent-workflow/scripts/deliver_pr.sh ensure --base <base-branch>
 - 做了哪些关键动作（代码、测试、交付）
 - 实际结果（测试通过、生成了本地 commit、PR URL 或 handoff）
 
+### Step 5.8：核对实验结果目录（如有）
+
+如果当前 issue 运行过实验、评测或 smoke test：
+
+- 确认结果目录为 `results/issue<meta.issue_id>/`
+- 确认 `results/issue<meta.issue_id>/SUMMARY.md` 已存在
+- 确认总结已覆盖每次实验，且包含设定、模型/工作流、input length、结果与尝试分析
+
 ### Step 6：归档 current.md
 
 ```bash
@@ -68,6 +76,7 @@ cp .agent-workflow/docs/plan/current.md .agent-workflow/docs/plan/archive/<meta.
 - 归档内容中必须补充交付状态：
   - 已创建或复用 PR：写明 PR URL，并写明“Stage 6 将尝试最终 merge”
   - 本地交付 + 人工 handoff：写明本地 commit hash、失败原因和人工下一步
+- 若当前 issue 运行过实验、评测或 smoke test：写明结果目录 `results/issue<meta.issue_id>/` 与 `SUMMARY.md` 路径
 - 不要移动或删除 `.agent-workflow/issue_test/<meta.issue_id>.sh`；它必须留在 `.agent-workflow/issue_test/` 里参与后续回归
 
 ### Step 7：清理
@@ -89,6 +98,7 @@ cp .agent-workflow/docs/plan/current.md .agent-workflow/docs/plan/archive/<meta.
 2. 当前 issue 对应的测试脚本路径与覆盖目标
 3. 可逐步勾选的执行步骤
 4. 对应的验证记录（至少包含历史回归基线和完整回归结果）
+5. 若包含实验、评测或 smoke test：结果目录 `results/issue<issue_id>/` 与总结文件 `results/issue<issue_id>/SUMMARY.md`
 
 ## 维护说明
 
@@ -117,12 +127,13 @@ previous: stage4
   - 归档中已记录“本地交付 + 人工 handoff”的 commit hash、失败原因和下一步
 - [ ] `.agent-workflow/docs/progress.md` 已更新
 - [ ] `.agent-workflow/docs/run_log.md` 已追加本 issue 的执行事实与结果
+- [ ] 若本 issue 运行了实验、评测或 smoke test，`results/issue<meta.issue_id>/SUMMARY.md` 已存在且内容完整
 - [ ] `.agent-workflow/docs/plan/archive/<meta.issue_id>.md` 已创建
 - [ ] `.agent-workflow/issue_test/<meta.issue_id>.sh` 仍保留在 `.agent-workflow/issue_test/` 中
 - [ ] `.agent-workflow/docs/plan/current.md` 已清空
 - [ ] `.agent-workflow/docs/plan/backlog.md` 对应条目已标记 `[x]`
 - [ ] `stage.lock` 已更新（current: stage5）
-- [ ] `stage.lock` 更新已单独 git commit（格式：`chore(stage): stage4 → stage5 [done]`）
+- [ ] `stage.lock` 已更新；若团队跟踪 `.agent-workflow/`，再按团队约定单独提交状态文件
 
 ## Failure Path
 

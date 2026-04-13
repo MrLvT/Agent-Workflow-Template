@@ -122,13 +122,15 @@ The role of each:
 
 In short: `backlog.md` is the development entry point, `current.md` is the in-progress plan, and `issue_test` is the acceptance script.
 
+If the current issue includes experiments, evaluations, or smoke tests, results must be written under `results/issue<issue_id>/`, and `results/issue<issue_id>/SUMMARY.md` must append one summary per experiment with the model, workflow, input length, key settings, result, and attempted analysis.
+
 ### 3. What Does `init.sh` Actually Do?
 
 `init.sh` does more than copy files. It divides template initialization into four types of actions:
 
 | Category | How it's handled | Files |
 | --- | --- | --- |
-| Fixed skeleton | Copied directly from `scaffold/<lang>/` | `.agent-workflow/docs/stage.lock`, `.agent-workflow/docs/run_log.md`, `.agent-workflow/docs/workflow/stage*.md`, `.agent-workflow/docs/wisdom.md`, `.agent-workflow/docs/antipatterns.md`, `.agent-workflow/docs/blockers.md`, `.agent-workflow/docs/plan/current.md`, `.agent-workflow/docs/plan/archive/README.md`, `.agent-workflow/issue_test/README.md`, `.agent-workflow/scripts/build_context.py`, `.agent-workflow/scripts/run_issue_tests.sh`, `.agent-workflow/scripts/deliver_pr.sh` |
+| Fixed skeleton | Copied directly from `scaffold/<lang>/` | `.agent-workflow/docs/stage.lock`, `.agent-workflow/docs/run_log.md`, `.agent-workflow/docs/environment.md`, `.agent-workflow/docs/workflow/stage*.md`, `.agent-workflow/docs/wisdom.md`, `.agent-workflow/docs/antipatterns.md`, `.agent-workflow/docs/blockers.md`, `.agent-workflow/docs/plan/current.md`, `.agent-workflow/docs/plan/archive/README.md`, `.agent-workflow/issue_test/README.md`, `.agent-workflow/scripts/build_context.py`, `.agent-workflow/scripts/run_issue_tests.sh`, `.agent-workflow/scripts/deliver_pr.sh` |
 | AI-filled | Template copied first, then AI fills it based on target repo facts | `.agent-workflow/docs/overview.md`, `.agent-workflow/docs/architecture.md`, `.agent-workflow/docs/conventions.md`, `.agent-workflow/docs/quality.md`, `.agent-workflow/docs/security.md`, `.agent-workflow/docs/progress.md`, `.agent-workflow/docs/plan/backlog.md` |
 | Script-written | Copied, then placeholders replaced by the script | `.agent-workflow/docs/decisions.md` — D-001 date and initialization background inserted by `sed` |
 | Deferred copy | Copied after AI filling completes to avoid affecting the initialization prompt | `.agent-workflow/AGENTS.md` |
@@ -180,7 +182,7 @@ Two points to note:
 | --- | --- | --- |
 | Bootstrap | `init.sh`, `scaffold/` | Initialize the target repository, copy the skeleton, fill initial documents |
 | Control | `.agent-workflow/AGENTS.md`, `.agent-workflow/docs/stage.lock`, `.agent-workflow/docs/workflow/stage*.md` | Define agent startup protocol, current state, and Stage transition rules |
-| Context | `.agent-workflow/docs/overview.md`, `architecture.md`, `conventions.md`, `quality.md`, `security.md`, `progress.md`, `run_log.md`, `decisions.md`, `blockers.md`, `wisdom.md`, `antipatterns.md`, `.agent-workflow/docs/plan/*` | Provide project facts, rules, plans, run history, and blocker information |
+| Context | `.agent-workflow/docs/overview.md`, `architecture.md`, `conventions.md`, `environment.md`, `quality.md`, `security.md`, `progress.md`, `run_log.md`, `decisions.md`, `blockers.md`, `wisdom.md`, `antipatterns.md`, `.agent-workflow/docs/plan/*` | Provide project facts, rules, environment prerequisites, plans, run history, and blocker information |
 | Harness | `.agent-workflow/scripts/build_context.py`, `.agent-workflow/issue_test/*.sh`, `.agent-workflow/scripts/run_issue_tests.sh` | Mechanically load context, mechanically run cumulative regression |
 | Delivery | `git commit`, `git push`, `.agent-workflow/scripts/deliver_pr.sh`, `.agent-workflow/docs/plan/archive/*` | Convert changes into deliverable results and archive them |
 
@@ -258,7 +260,7 @@ This means:
 
 - Picking multiple backlog issues in the same run is not allowed.
 - Any Stage failure requires writing `.agent-workflow/docs/blockers.md` and stopping.
-- Every `stage.lock` update requires a separate git commit.
+- By default, `stage.lock` only needs to be updated locally; make a separate commit only if the team explicitly tracks workflow state files.
 - New tasks must enter `.agent-workflow/docs/plan/backlog.md` first, then Stage 2 converts them to `current.md` and `.agent-workflow/issue_test/<issue_id>.sh`.
 
 ## Stage Input Model

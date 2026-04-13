@@ -12,3 +12,5 @@ This directory stores completed issue plans and reflection records.
 ## Retention Policy
 
 Archive files are retained permanently. They serve as a historical reference for decision context, workflow patterns, and regression coverage.
+
+When an issue ran experiments, evaluations, or smoke tests, the archive should also record the result directory `results/issue<issue_id>/` and the `SUMMARY.md` path.

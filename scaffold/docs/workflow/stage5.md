@@ -60,7 +60,7 @@ previous: stage5
 - [ ] `.agent-workflow/docs/wisdom.md` 已处理（追加或明确写"无"在 REFLECT 中）
 - [ ] `.agent-workflow/docs/antipatterns.md` 已处理（追加或明确写"无"在 REFLECT 中）
 - [ ] `stage.lock` 已更新（current: stage6）
-- [ ] `stage.lock` 更新已单独 git commit（格式：`chore(stage): stage5 → stage6 [done]`）
+- [ ] `stage.lock` 已更新；若团队跟踪 `.agent-workflow/`，再按团队约定单独提交状态文件
 
 ## Failure Path
 

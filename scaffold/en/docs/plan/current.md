@@ -11,6 +11,7 @@
 2. Test script path and coverage goal for the current issue
 3. Step-by-step checkable execution steps
 4. Verification records (must include at least the historical regression baseline and full regression result)
+5. If experiments, evaluations, or smoke tests are involved: result directory `results/issue<issue_id>/` and summary file `results/issue<issue_id>/SUMMARY.md`
 
 ## Maintenance Notes
 

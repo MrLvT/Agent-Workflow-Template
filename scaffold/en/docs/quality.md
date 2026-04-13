@@ -17,6 +17,12 @@
 - [ ] Full regression was run before committing: `bash .agent-workflow/scripts/run_issue_tests.sh`
 - [ ] If any historical `.agent-workflow/issue_test/*.sh` was modified, the reason and impact are recorded
 
+### Experiment Evidence
+
+- [ ] If this issue ran experiments, evaluations, or smoke tests, outputs were stored under `results/issue<issue_id>/`
+- [ ] `results/issue<issue_id>/SUMMARY.md` exists and contains one summary entry per experiment
+- [ ] Each experiment summary includes at least the setup, model/workflow, input length, key input conditions, command/environment, result metrics, raw artifact paths, and attempted analysis
+
 ### Documentation Sync
 
 - [ ] Changes are reflected in relevant documents
@@ -67,3 +73,4 @@ bash .agent-workflow/scripts/run_issue_tests.sh --exclude .agent-workflow/issue_
 1. New quality gates must be written here before being added to CI.
 2. This document is the mandatory pre-commit self-review checklist and must not be weakened.
 3. Every issue must add or bind to a reproducible `.agent-workflow/issue_test/<issue_id>.sh`.
+4. Any issue containing experiments or evaluations must maintain `results/issue<issue_id>/SUMMARY.md`.

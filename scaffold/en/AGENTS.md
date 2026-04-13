@@ -54,6 +54,7 @@ After each Stage, re-read `.agent-workflow/docs/stage.lock`:
 | `.agent-workflow/docs/overview.md` | Project goals and scope |
 | `.agent-workflow/docs/architecture.md` | Module boundaries and dependency rules |
 | `.agent-workflow/docs/conventions.md` | Naming, code style, and git conventions |
+| `.agent-workflow/docs/environment.md` | Runtime environment, scheduler, and prerequisite facts |
 | `.agent-workflow/docs/run_log.md` | Cross-issue run-level execution log |
 | `.agent-workflow/docs/decisions.md` | Append-only design decision log |
 | `.agent-workflow/docs/quality.md` | Definition of Done and verification methods |
@@ -74,7 +75,7 @@ After each Stage, re-read `.agent-workflow/docs/stage.lock`:
 1. The three-step startup protocol must execute; it cannot be skipped.
 2. When Stage routing is unclear, use `stage.lock` as the source of truth — do not guess.
 3. Every Stage must complete its Exit Checklist before proceeding; it cannot be skipped.
-4. Every `stage.lock` update must be a separate git commit, not mixed with business code. Format: `chore(stage): <from> → <to> [<reason>]`, e.g. `chore(stage): stage2 → stage3 [done]` or `chore(stage): stage3 [failed]`.
+4. `.agent-workflow/` is local workflow state by default; `stage.lock`, `current.md`, `blockers.md`, archives, issue tests, and workflow docs should not enter the repository history unless the team explicitly decides to track them. If they are tracked, keep those commits separate from business code.
 5. Architecture boundary violations must be fixed first. If `.agent-workflow/docs/architecture.md` says a rule is "enforced by static check or CI", use the tool output as the source of truth. If no automated check is configured yet, the agent self-enforces and records the constraint as manually enforced in `.agent-workflow/docs/decisions.md`.
 6. Read `.agent-workflow/docs/security.md` before touching credentials, authentication, or sensitive files.
 7. Important technical trade-offs must be appended to `.agent-workflow/docs/decisions.md` (overwriting history is forbidden).
@@ -83,3 +84,5 @@ After each Stage, re-read `.agent-workflow/docs/stage.lock`:
 10. When an unresolvable problem is encountered, write to `.agent-workflow/docs/blockers.md` and stop. Do not bypass the blocker.
 11. Stage 4 creates or updates the PR; it does not perform the final merge. Stage 6 handles the final merge / auto-merge. If remote delivery in Stage 4 or Stage 6 is blocked by network, permissions, or environment constraints, it may fall back to "local delivery + manual handoff", but the local commit hash, failed command, and required human next steps must be written into the archive record.
 12. `.agent-workflow/docs/run_log.md` must be maintained continuously: Stage 2 clarifies the goal, Stage 4/6 append work and results, and any stopping point must fill in the end time and final status.
+13. If a later run discovers new environment facts (for example Slurm, conda, CUDA, login-node limits, or scheduler-only execution), update `.agent-workflow/docs/environment.md` immediately instead of leaving that knowledge only in chat context.
+14. After any experiment, evaluation, or smoke test run, store outputs under `results/issue<issue_id>/` and append a summary to `results/issue<issue_id>/SUMMARY.md`, including at minimum the setup, model/workflow, input length, result, and attempted analysis.
