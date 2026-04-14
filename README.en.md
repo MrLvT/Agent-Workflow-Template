@@ -100,7 +100,7 @@ bash .agent-workflow/scripts/run_issue_tests.sh
 bash .agent-workflow/scripts/run_issue_tests.sh --exclude .agent-workflow/issue_test/<issue_id>.sh
 ```
 
-`start_agent.sh` now runs in "one fresh Codex session per issue" mode: after one issue loop finishes, the launcher ends that session and starts a new one before the next issue so context does not grow forever across issues. If you want only one session, use `bash .agent-workflow/scripts/start_agent.sh --once`.
+`start_agent.sh` now runs in "one fresh Codex session per issue" mode while keeping the normal Codex interactive UI by default: after one issue loop finishes, the launcher ends that session and starts a new one before the next issue so context does not grow forever across issues. If you want only one session, use `bash .agent-workflow/scripts/start_agent.sh --once`; add `--verbose` or set `CODEX_LAUNCHER_VERBOSE=1` if you want launcher logs.
 
 ### 2.4 Upgrade Rules for an Existing Installed Workflow
 

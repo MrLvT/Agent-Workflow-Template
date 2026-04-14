@@ -5,15 +5,23 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 WORKFLOW_DIR="${ROOT_DIR}/.agent-workflow"
 MAX_RUNS="${CODEX_MAX_RUNS:-20}"
 RUN_COUNT=0
+VERBOSE="${CODEX_LAUNCHER_VERBOSE:-0}"
 
 usage() {
     cat <<'EOF'
 Usage:
-  bash scripts/start_agent.sh [--once] [--max-runs <n>]
+  bash scripts/start_agent.sh [--once] [--max-runs <n>] [--verbose]
 
 This helper supervises repeated fresh Codex sessions for an initialized
 repository that already contains `.agent-workflow/`.
+Set `CODEX_LAUNCHER_VERBOSE=1` or pass `--verbose` if you want launcher logs.
 EOF
+}
+
+note() {
+    if [[ "$VERBOSE" == "1" ]]; then
+        printf '[start_agent] %s\n' "$*" >&2
+    fi
 }
 
 read_lock_field() {
@@ -117,6 +125,10 @@ while [[ $# -gt 0 ]]; do
             MAX_RUNS="$2"
             shift 2
             ;;
+        --verbose)
+            VERBOSE=1
+            shift
+            ;;
         -h|--help)
             usage
             exit 0
@@ -139,36 +151,36 @@ while true; do
     RUN_COUNT=$((RUN_COUNT + 1))
 
     if [[ "$MAX_RUNS" -gt 0 && "$RUN_COUNT" -gt "$MAX_RUNS" ]]; then
-        echo "[start_agent] Reached the max session count ($MAX_RUNS); stopping auto-restart."
+        note "Reached the max session count ($MAX_RUNS); stopping auto-restart."
         exit 0
     fi
 
-    echo "[start_agent] Starting fresh Codex session #${RUN_COUNT}..."
+    note "Starting fresh Codex session #${RUN_COUNT}..."
 
-    codex exec \
+    codex \
+        -a never \
         --sandbox danger-full-access \
-        -c 'approval_policy="never"' \
         -C "$ROOT_DIR" \
         "$(launcher_prompt)"
 
     case "$(should_restart_fresh)" in
         restart)
-            echo "[start_agent] One issue loop finished; pending work remains, so a fresh session will start next."
+            note "One issue loop finished; pending work remains, so a fresh session will start next."
             ;;
         complete)
-            echo "[start_agent] The current issue finished and no further pending work was detected. Stopping."
+            note "The current issue finished and no further pending work was detected. Stopping."
             exit 0
             ;;
         blocked)
-            echo "[start_agent] Blockers are present; stopping auto-restart until a human resolves them."
+            echo "[start_agent] Blockers are present; stopping auto-restart until a human resolves them." >&2
             exit 1
             ;;
         failed)
-            echo "[start_agent] stage.lock is marked failed; stopping auto-restart."
+            echo "[start_agent] stage.lock is marked failed; stopping auto-restart." >&2
             exit 1
             ;;
         stop)
-            echo "[start_agent] Workflow did not return to a safe stage1/done restart point; stopping auto-restart."
+            note "Workflow did not return to a safe stage1/done restart point; stopping auto-restart."
             exit 0
             ;;
     esac

@@ -192,7 +192,7 @@
 - 日期：2026-04-14
 - 状态：Accepted
 - 背景：D-013 允许无错误时连续处理多个 issue，但如果所有 issue 都在同一个长会话里串行完成，Codex 上下文会持续累积，后续 issue 更容易受早期无关上下文干扰，甚至触发上下文窗口膨胀问题。
-- 决策：保留“默认连续运行多个 issue”的目标，但把实现改成“每个 issue 一个全新的 Codex session”。`scripts/start_agent.sh` 负责监督循环：当一个 issue 闭环结束并回到 `current: stage1`、`status: done`、`previous: stage6` 后，先结束当前 session，再拉起一个新的 `codex exec` session 处理下一个 issue。
+- 决策：保留“默认连续运行多个 issue”的目标，但把实现改成“每个 issue 一个全新的 Codex session”。`scripts/start_agent.sh` 负责监督循环：当一个 issue 闭环结束并回到 `current: stage1`、`status: done`、`previous: stage6` 后，先结束当前 session，再拉起一个新的交互式 Codex session 处理下一个 issue；默认只输出最少的壳层日志，尽量保持原生 Codex 界面。
 - 原因：这样既保留无人值守连续推进 backlog 的能力，又能在 issue 边界自动清空会话上下文，降低上下文爆炸和跨 issue 污染的风险。
 - 被拒绝方案：
   - 继续在同一个长 session 内串行处理所有 issue：上下文会无限堆积

@@ -99,7 +99,7 @@ bash .agent-workflow/scripts/run_issue_tests.sh
 bash .agent-workflow/scripts/run_issue_tests.sh --exclude .agent-workflow/issue_test/<issue_id>.sh
 ```
 
-`start_agent.sh` 现在会以“每个 issue 一个全新 Codex session”的方式连续运行：一个 issue 闭环完成后，脚本会先结束当前 session，再重新启动下一轮，避免上下文在多个 issue 间无限累积。若只想跑一轮，可用 `bash .agent-workflow/scripts/start_agent.sh --once`。
+`start_agent.sh` 现在会以“每个 issue 一个全新 Codex session”的方式连续运行，但默认仍保持 Codex 原本的交互界面：一个 issue 闭环完成后，脚本会先结束当前 session，再重新启动下一轮，避免上下文在多个 issue 间无限累积。若只想跑一轮，可用 `bash .agent-workflow/scripts/start_agent.sh --once`；若想看启动器日志，可临时加 `--verbose` 或设置 `CODEX_LAUNCHER_VERBOSE=1`。
 
 ### 2.4 升级已安装的 workflow 规则
 

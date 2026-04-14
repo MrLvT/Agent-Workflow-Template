@@ -5,18 +5,26 @@ WORKFLOW_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 REPO_DIR="$(cd "${WORKFLOW_DIR}/.." && pwd)"
 MAX_RUNS="${CODEX_MAX_RUNS:-20}"
 RUN_COUNT=0
+VERBOSE="${CODEX_LAUNCHER_VERBOSE:-0}"
 
 usage() {
     cat <<'EOF'
 用法：
-  bash .agent-workflow/scripts/start_agent.sh [--once] [--max-runs <n>]
+  bash .agent-workflow/scripts/start_agent.sh [--once] [--max-runs <n>] [--verbose]
 
 行为：
   - 以 fresh-session 模式运行 Codex
   - 每个 Codex session 最多只完整闭环一个新 issue
   - 若 Stage 6 回到 stage1/done 后仍有 backlog/current 待处理任务，
     启动器会先结束当前 session，再拉起一个全新的 Codex session
+  - 默认尽量保持 Codex 原始交互界面；若需要壳层状态日志，可设 `CODEX_LAUNCHER_VERBOSE=1`
 EOF
+}
+
+note() {
+    if [[ "$VERBOSE" == "1" ]]; then
+        printf '[start_agent] %s\n' "$*" >&2
+    fi
 }
 
 read_lock_field() {
@@ -114,6 +122,10 @@ while [[ $# -gt 0 ]]; do
             MAX_RUNS="$2"
             shift 2
             ;;
+        --verbose)
+            VERBOSE=1
+            shift
+            ;;
         -h|--help)
             usage
             exit 0
@@ -136,36 +148,36 @@ while true; do
     RUN_COUNT=$((RUN_COUNT + 1))
 
     if [[ "$MAX_RUNS" -gt 0 && "$RUN_COUNT" -gt "$MAX_RUNS" ]]; then
-        echo "[start_agent] 已达到最大 session 数：$MAX_RUNS，停止自动重启。"
+        note "已达到最大 session 数：$MAX_RUNS，停止自动重启。"
         exit 0
     fi
 
-    echo "[start_agent] 启动第 ${RUN_COUNT} 个全新 Codex session..."
+    note "启动第 ${RUN_COUNT} 个全新 Codex session..."
 
-    codex exec \
+    codex \
+        -a never \
         --sandbox danger-full-access \
-        -c 'approval_policy="never"' \
         -C "$REPO_DIR" \
         "$(launcher_prompt)"
 
     case "$(should_restart_fresh)" in
         restart)
-            echo "[start_agent] 已完成一个 issue；检测到仍有待处理任务，准备以全新上下文继续下一轮。"
+            note "已完成一个 issue；检测到仍有待处理任务，准备以全新上下文继续下一轮。"
             ;;
         complete)
-            echo "[start_agent] 当前 issue 已完成，且没有新的待处理任务，停止。"
+            note "当前 issue 已完成，且没有新的待处理任务，停止。"
             exit 0
             ;;
         blocked)
-            echo "[start_agent] 检测到 blockers，停止自动重启，等待人类处理。"
+            echo "[start_agent] 检测到 blockers，停止自动重启，等待人类处理。" >&2
             exit 1
             ;;
         failed)
-            echo "[start_agent] stage.lock 标记为 failed，停止自动重启。"
+            echo "[start_agent] stage.lock 标记为 failed，停止自动重启。" >&2
             exit 1
             ;;
         stop)
-            echo "[start_agent] 当前 workflow 未回到可安全重启的 stage1/done 状态，停止自动重启。"
+            note "当前 workflow 未回到可安全重启的 stage1/done 状态，停止自动重启。"
             exit 0
             ;;
     esac
