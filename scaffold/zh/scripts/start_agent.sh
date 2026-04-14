@@ -3,11 +3,170 @@ set -euo pipefail
 
 WORKFLOW_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 REPO_DIR="$(cd "${WORKFLOW_DIR}/.." && pwd)"
+MAX_RUNS="${CODEX_MAX_RUNS:-20}"
+RUN_COUNT=0
+
+usage() {
+    cat <<'EOF'
+用法：
+  bash .agent-workflow/scripts/start_agent.sh [--once] [--max-runs <n>]
+
+行为：
+  - 以 fresh-session 模式运行 Codex
+  - 每个 Codex session 最多只完整闭环一个新 issue
+  - 若 Stage 6 回到 stage1/done 后仍有 backlog/current 待处理任务，
+    启动器会先结束当前 session，再拉起一个全新的 Codex session
+EOF
+}
+
+read_lock_field() {
+    local field="$1"
+    local lock_file="$WORKFLOW_DIR/docs/stage.lock"
+    [[ -f "$lock_file" ]] || return 1
+    sed -n "s/^${field}:[[:space:]]*//p" "$lock_file" | head -n 1 | tr -d '[:space:]'
+}
+
+has_open_checklist_items() {
+    local file="$1"
+    [[ -f "$file" ]] || return 1
+    grep -Eq '^[[:space:]]*-[[:space:]]*\[[[:space:]]\]' "$file"
+}
+
+has_unresolved_blockers() {
+    local blockers_file="$WORKFLOW_DIR/docs/blockers.md"
+    local body
+
+    [[ -f "$blockers_file" ]] || return 1
+
+    body="$(
+        awk '
+            /^## (当前阻塞|Current Blockers)/ {capture=1; next}
+            /^## / && capture {exit}
+            capture {print}
+        ' "$blockers_file" | sed '/^[[:space:]]*$/d'
+    )"
+
+    [[ -n "$body" && "$body" != "（无）" && "$body" != "(none)" ]]
+}
+
+has_pending_work() {
+    has_open_checklist_items "$WORKFLOW_DIR/docs/plan/current.md" || \
+        has_open_checklist_items "$WORKFLOW_DIR/docs/plan/backlog.md"
+}
+
+launcher_prompt() {
+    cat <<'EOF'
+读 .agent-workflow/AGENTS.md，然后开始工作。
+
+运行时约束：
+- 这是由 `.agent-workflow/scripts/start_agent.sh` 拉起的全新 Codex session。
+- 本 session 允许从 `current: stage1`、`status: done`、`previous: stage6` 开始，继续路由到下一个 issue。
+- 当本 session 完成一个新的 issue 闭环，并再次回到 `current: stage1`、`status: done`、`previous: stage6` 时，请停止当前 session，不要继续领取更多 issue。
+- 停止后由外层启动脚本重启一个全新的 session，以清空上下文后再继续。
+EOF
+}
+
+should_restart_fresh() {
+    local current status previous
+
+    current="$(read_lock_field current || true)"
+    status="$(read_lock_field status || true)"
+    previous="$(read_lock_field previous || true)"
+
+    if [[ "$status" == "failed" ]]; then
+        echo "failed"
+        return
+    fi
+
+    if has_unresolved_blockers; then
+        echo "blocked"
+        return
+    fi
+
+    if [[ "$current" == "stage1" && "$status" == "done" && "$previous" == "stage6" ]]; then
+        if has_pending_work; then
+            echo "restart"
+        else
+            echo "complete"
+        fi
+        return
+    fi
+
+    echo "stop"
+}
 
 if ! command -v codex >/dev/null 2>&1; then
     echo "ERROR: 未找到 codex CLI，请先确认它已安装并且在 PATH 中。" >&2
     exit 1
 fi
 
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --once)
+            MAX_RUNS=1
+            shift
+            ;;
+        --max-runs)
+            [[ $# -ge 2 ]] || {
+                echo "ERROR: --max-runs 需要一个正整数或 0（表示不设上限）。" >&2
+                exit 1
+            }
+            MAX_RUNS="$2"
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "ERROR: 未知参数：$1" >&2
+            usage >&2
+            exit 1
+            ;;
+    esac
+done
+
+[[ "$MAX_RUNS" =~ ^[0-9]+$ ]] || {
+    echo "ERROR: --max-runs 必须是非负整数。" >&2
+    exit 1
+}
+
 cd "$REPO_DIR"
-exec codex -a never --sandbox danger-full-access "读 .agent-workflow/AGENTS.md，然后开始工作。"
+while true; do
+    RUN_COUNT=$((RUN_COUNT + 1))
+
+    if [[ "$MAX_RUNS" -gt 0 && "$RUN_COUNT" -gt "$MAX_RUNS" ]]; then
+        echo "[start_agent] 已达到最大 session 数：$MAX_RUNS，停止自动重启。"
+        exit 0
+    fi
+
+    echo "[start_agent] 启动第 ${RUN_COUNT} 个全新 Codex session..."
+
+    codex exec \
+        --sandbox danger-full-access \
+        -c 'approval_policy="never"' \
+        -C "$REPO_DIR" \
+        "$(launcher_prompt)"
+
+    case "$(should_restart_fresh)" in
+        restart)
+            echo "[start_agent] 已完成一个 issue；检测到仍有待处理任务，准备以全新上下文继续下一轮。"
+            ;;
+        complete)
+            echo "[start_agent] 当前 issue 已完成，且没有新的待处理任务，停止。"
+            exit 0
+            ;;
+        blocked)
+            echo "[start_agent] 检测到 blockers，停止自动重启，等待人类处理。"
+            exit 1
+            ;;
+        failed)
+            echo "[start_agent] stage.lock 标记为 failed，停止自动重启。"
+            exit 1
+            ;;
+        stop)
+            echo "[start_agent] 当前 workflow 未回到可安全重启的 stage1/done 状态，停止自动重启。"
+            exit 0
+            ;;
+    esac
+done

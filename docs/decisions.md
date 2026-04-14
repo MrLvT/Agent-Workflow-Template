@@ -176,3 +176,25 @@
   - 继续保持单 issue run：批量推进效率低，人工重启成本高
   - 完全去掉 Stage 1 的统一路由入口：会削弱 blocker 检查和状态一致性
 - 影响：默认行为更适合连续自动执行；若团队仍希望“一次 run 只做一个 issue”，需要在自定义约束中重新加回该限制。
+
+## D-014 提供无重置历史的 workflow 规则升级脚本
+- 日期：2026-04-13
+- 状态：Accepted
+- 背景：已有仓库在初始化后会逐步积累 `.agent-workflow/docs/stage.lock`、`run_log.md`、`plan/archive/*`、`results/` 等本地状态与历史。随着模板规则演进，仅靠重新运行 `init.sh` 会有覆盖这些运行痕迹的风险，也不适合已在运行中的 sidecar 仓库。
+- 决策：新增 `scripts/upgrade_workflow_rules.sh`，用于把模板拥有的规则文件就地同步到目标仓库的 `.agent-workflow/`。脚本默认只覆盖 `AGENTS.md`、`docs/workflow/stage*.md`、`scripts/*`、`issue_test/README.md`、`docs/plan/archive/README.md`，仅在缺失时补 `environment.md` 与 `run_log.md`，同时保留 `stage.lock`、`blockers.md`、`plan/current.md`、archive、progress、decisions 与 `results/`。
+- 原因：这能让历史仓库安全升级到新的协议、脚本和 stage 规则，而不打断当前 issue 状态，也不要求重建 workflow 历史。
+- 被拒绝方案：
+  - 重新运行 `init.sh`：容易覆盖或重置已有运行状态，不适合存量 sidecar
+  - 直接整目录覆盖 `.agent-workflow/`：会误伤状态文件、归档和实验结果
+- 影响：后续升级已有 workflow 时，推荐使用升级脚本而不是重新初始化；项目事实文档如 `conventions.md`、`quality.md`、`environment.md` 仍需按目标仓库实际情况人工复核。
+
+## D-015 连续运行时按 issue 重启 fresh session
+- 日期：2026-04-14
+- 状态：Accepted
+- 背景：D-013 允许无错误时连续处理多个 issue，但如果所有 issue 都在同一个长会话里串行完成，Codex 上下文会持续累积，后续 issue 更容易受早期无关上下文干扰，甚至触发上下文窗口膨胀问题。
+- 决策：保留“默认连续运行多个 issue”的目标，但把实现改成“每个 issue 一个全新的 Codex session”。`scripts/start_agent.sh` 负责监督循环：当一个 issue 闭环结束并回到 `current: stage1`、`status: done`、`previous: stage6` 后，先结束当前 session，再拉起一个新的 `codex exec` session 处理下一个 issue。
+- 原因：这样既保留无人值守连续推进 backlog 的能力，又能在 issue 边界自动清空会话上下文，降低上下文爆炸和跨 issue 污染的风险。
+- 被拒绝方案：
+  - 继续在同一个长 session 内串行处理所有 issue：上下文会无限堆积
+  - 改回每个 issue 都必须人工重启：人工成本高，失去自动连续运行能力
+- 影响：今后的连续运行语义变成“同一次启动脚本调用可以连续处理多个 issue，但 issue 之间自动换新 session”；如只想跑一轮，可使用 `start_agent.sh --once`。

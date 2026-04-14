@@ -100,6 +100,29 @@ bash .agent-workflow/scripts/run_issue_tests.sh
 bash .agent-workflow/scripts/run_issue_tests.sh --exclude .agent-workflow/issue_test/<issue_id>.sh
 ```
 
+`start_agent.sh` 现在会以“每个 issue 一个全新 Codex session”的方式连续运行：一个 issue 闭环完成后，脚本会先结束当前 session，再重新启动下一轮，避免上下文在多个 issue 间无限累积。若只想跑一轮，可用 `bash .agent-workflow/scripts/start_agent.sh --once`。
+
+### 2.4 升级已安装的 workflow 规则
+
+如果另一个仓库已经有 `.agent-workflow/`，不要重跑 `init.sh`。现在可以直接用模板仓库里的升级脚本，只同步模板拥有的规则文件，并保留原仓库的状态与历史：
+
+```bash
+bash /path/to/Agent-Workflow-Template/scripts/upgrade_workflow_rules.sh /path/to/target-repo
+```
+
+它会：
+
+- 同步 `.agent-workflow/AGENTS.md`、`docs/workflow/stage*.md`、`scripts/*.sh`、`scripts/build_context.py`、`issue_test/README.md`、`docs/plan/archive/README.md`
+- 仅在缺失时补 `docs/environment.md` 和 `docs/run_log.md`
+- 保留 `docs/stage.lock`、`docs/blockers.md`、`docs/plan/current.md`、`docs/plan/archive/*`、`docs/progress.md`、`docs/decisions.md`、`results/`
+- 自动确保 `/.agent-workflow/` 写入目标仓库的 `.git/info/exclude`
+
+若目标仓库使用英文 scaffold，可加：
+
+```bash
+bash /path/to/Agent-Workflow-Template/scripts/upgrade_workflow_rules.sh /path/to/target-repo --lang en
+```
+
 ### 2.5 开发一个新任务时，先写 `backlog.md`
 
 这个模板里，"要开发什么"的正式入口不是直接改代码，也不是先写 `current.md`，而是先把任务写进 `.agent-workflow/docs/plan/backlog.md`。

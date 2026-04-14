@@ -100,6 +100,29 @@ bash .agent-workflow/scripts/run_issue_tests.sh
 bash .agent-workflow/scripts/run_issue_tests.sh --exclude .agent-workflow/issue_test/<issue_id>.sh
 ```
 
+`start_agent.sh` now runs in "one fresh Codex session per issue" mode: after one issue loop finishes, the launcher ends that session and starts a new one before the next issue so context does not grow forever across issues. If you want only one session, use `bash .agent-workflow/scripts/start_agent.sh --once`.
+
+### 2.4 Upgrade Rules for an Existing Installed Workflow
+
+If another repository already has `.agent-workflow/`, do not re-run `init.sh`. Use the upgrade helper from the template repository instead. It only syncs template-owned rule files and preserves the target repository's existing state/history:
+
+```bash
+bash /path/to/Agent-Workflow-Template/scripts/upgrade_workflow_rules.sh /path/to/target-repo
+```
+
+It will:
+
+- sync `.agent-workflow/AGENTS.md`, `docs/workflow/stage*.md`, `scripts/*.sh`, `scripts/build_context.py`, `issue_test/README.md`, and `docs/plan/archive/README.md`
+- create `docs/environment.md` and `docs/run_log.md` only if they are missing
+- preserve `docs/stage.lock`, `docs/blockers.md`, `docs/plan/current.md`, `docs/plan/archive/*`, `docs/progress.md`, `docs/decisions.md`, and `results/`
+- ensure `/.agent-workflow/` is listed in the target repository's `.git/info/exclude`
+
+If the target repository uses the English scaffold explicitly, add:
+
+```bash
+bash /path/to/Agent-Workflow-Template/scripts/upgrade_workflow_rules.sh /path/to/target-repo --lang en
+```
+
 ### 2.5 Write to `backlog.md` Before Starting a New Task
 
 In this template, the formal entry point for "what to develop" is not changing code directly or writing `current.md` first — it is adding the task to `.agent-workflow/docs/plan/backlog.md`.

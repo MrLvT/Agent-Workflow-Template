@@ -23,9 +23,11 @@
 
 - `status == failed` → **停止，通知人类**（说明上次执行失败，需要人工介入）
   - 停止前补齐当前 run 记录的结束时间、状态（`failed`）和实际结果
-- `current == stage1 && status == done && previous == stage6` → **继续路由**
-  - 说明刚完成一个完整 issue 闭环并从 Stage 6 回到了 Stage 1
-  - 若没有 blocker，可在同一次 run 中继续领取 backlog 的下一个任务
+- `current == stage1 && status == done && previous == stage6`：
+  - 若这是本次 session 第一次看到该状态 → **继续路由**
+    - 说明上一个 issue 已完成，新的 session 可以从 Stage 1 开始领取下一个任务
+  - 若这是本次 session 在完成一个 issue 闭环后再次回到该状态 → **停止当前 session**
+    - 交由 `.agent-workflow/scripts/start_agent.sh` 拉起一个新的 Codex session，再继续下一个 issue
 - `status == in_progress` → **直接跳转到 `stage.lock.current` 指定的 Stage，不再继续下面的判断**
 - `status == done` → 继续 Step 2
 
@@ -51,7 +53,7 @@
 - [ ] 已确定本次 run 是“停止”还是“继续路由”
 - [ ] 若继续路由：`stage.lock` 已更新（current 指向下一个 Stage，status: in_progress）
 - [ ] 若继续路由：`stage.lock` 已更新；若团队跟踪 `.agent-workflow/`，再按团队约定单独提交状态文件
-- [ ] 若继续路由：已正确处理 `current: stage1`、`status: done`、`previous: stage6` 的连续运行场景
+- [ ] 已正确处理 `current: stage1`、`status: done`、`previous: stage6` 的 fresh-session 交接场景
 
 ## Failure Path
 

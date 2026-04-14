@@ -23,9 +23,11 @@ Read `.agent-workflow/docs/stage.lock` and check the `status` field:
 
 - `status == failed` → **Stop, notify human** (previous execution failed; human intervention required)
   - Before stopping, fill in the current run entry's end time, status (`failed`), and actual result
-- `current == stage1 && status == done && previous == stage6` → **Continue routing**
-  - A complete issue loop just finished and returned from Stage 6 to Stage 1
-  - If there is no blocker, the same run may continue with the next backlog task
+- `current == stage1 && status == done && previous == stage6`:
+  - If this is the first time the current session has seen this state → **Continue routing**
+    - The previous issue is already finished, so a fresh session may route from Stage 1 into the next task
+  - If this session returns to the same state after finishing one issue loop → **Stop this session**
+    - Let `.agent-workflow/scripts/start_agent.sh` relaunch a fresh Codex session before the next issue
 - `status == in_progress` → **Jump directly to the Stage specified by `stage.lock.current`; do not continue evaluating below**
 - `status == done` → Continue to Step 2
 
@@ -51,7 +53,7 @@ Read `.agent-workflow/docs/plan/current.md`:
 - [ ] Determined whether this run should "stop" or "continue routing"
 - [ ] If continuing: `stage.lock` updated (current points to next Stage, status: in_progress)
 - [ ] If continuing: `stage.lock` has been updated; only make a separate status commit when the team explicitly tracks `.agent-workflow/`
-- [ ] If continuing: handled the `current: stage1`, `status: done`, `previous: stage6` continuous-run case correctly
+- [ ] Handled the `current: stage1`, `status: done`, `previous: stage6` fresh-session handoff case correctly
 
 ## Failure Path
 

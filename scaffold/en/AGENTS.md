@@ -33,9 +33,9 @@ After reading all files, follow the instructions in `.agent-workflow/docs/workfl
 After each Stage, re-read `.agent-workflow/docs/stage.lock`:
 
 - If `status == failed` → **Stop**, wait for a human to handle the blocker
-- If `current == stage1` and `status == done` and `previous == stage6` → **Continue**
-  - This means one complete issue loop has finished and returned to Stage 1
-  - If there is no blocker, the same run may continue with the next backlog task
+- If `current == stage1` and `status == done` and `previous == stage6`:
+  - If this is the first time the current session has seen this state → **Continue**, and let Stage 1 route to the next issue
+  - If the current session returns to this state after completing one full issue loop → **Stop this session**, and let `scripts/start_agent.sh` relaunch a fresh Codex session before the next issue
 - Otherwise → Return to Step 1 and continue to the next Stage
 
 ---
@@ -80,7 +80,7 @@ After each Stage, re-read `.agent-workflow/docs/stage.lock`:
 6. Read `.agent-workflow/docs/security.md` before touching credentials, authentication, or sensitive files.
 7. Important technical trade-offs must be appended to `.agent-workflow/docs/decisions.md` (overwriting history is forbidden).
 8. Before entering Stage 3, the corresponding `.agent-workflow/issue_test/<meta.issue_id>.sh` must exist. Subsequent issues must not delete, skip, or weaken historical issue tests to avoid regressions.
-9. If `current: stage1`, `status: done`, `previous: stage6` is detected, one issue loop has just finished; if there is no blocker, the same run may continue with the next backlog task.
+9. When running multiple issues continuously, `scripts/start_agent.sh` is responsible for restarting a fresh Codex session between issues. One session should complete at most one new issue loop so context does not keep growing without bound.
 10. When an unresolvable problem is encountered, write to `.agent-workflow/docs/blockers.md` and stop. Do not bypass the blocker.
 11. Stage 4 creates or updates the PR; it does not perform the final merge. Stage 6 handles the final merge / auto-merge. If remote delivery in Stage 4 or Stage 6 is blocked by network, permissions, or environment constraints, it may fall back to "local delivery + manual handoff", but the local commit hash, failed command, and required human next steps must be written into the archive record.
 12. `.agent-workflow/docs/run_log.md` must be maintained continuously: Stage 2 clarifies the goal, Stage 4/6 append work and results, and any stopping point must fill in the end time and final status.
