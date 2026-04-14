@@ -17,7 +17,7 @@
 ```markdown
 ## W-00X Title
 
-- Source: <issue_id> / PR link
+- Source: <issue_id> / local delivery commit hash
 - Applicable scenario:
 - Pattern description:
 - Counter-example (when not applicable):

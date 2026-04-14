@@ -14,11 +14,9 @@
 - 目标仓库：[cf3i/MiniAVLtree](https://github.com/cf3i/MiniAVLtree)
 - 验证任务：在 `.agent-workflow/docs/plan/backlog.md` 中新增“为 AVL 树新增 HTML 可视化页面”
 - Stage 2：按规则创建独立工作分支 `codex/2-html-avl-visualizer`
-- Stage 4：通过 `bash .agent-workflow/scripts/deliver_pr.sh ensure --base main` 创建 PR [#2](https://github.com/cf3i/MiniAVLtree/pull/2)
-- Stage 6：通过 `bash .agent-workflow/scripts/deliver_pr.sh merge --merge-method squash` 完成最终 merge
+- Stage 4：形成本地交付提交并归档交付摘要
+- Stage 6：完成文档与状态收口，仓库回到 `stage1 / done / previous=stage6`
 - 最终状态：目标仓库回到 `stage1 / done / previous=stage6`
-
-这次实仓回归还顺手抓到了一个真实问题：`deliver_pr.sh` 在输出 `MERGE_COMMIT_SHA` 时，`gh --jq` 的引号写法有误。该问题已修复，并回写到模板本身。
 
 ## 这个项目怎么用
 
@@ -72,7 +70,7 @@ bash /path/to/Agent-Workflow-Template/init.sh \
 
 - 脚本内建默认值是 `claude + gpt-5.4 + xhigh`。
 - 如果你使用 `codex` 且没有显式指定执行模式，脚本会默认切到 `--ultra`；独立 docs review 仍默认开启，除非显式传 `--no-docs-review`。
-- `init.sh` 会拒绝在非 Git 仓库中运行，因为这个 workflow 依赖 `stage.lock` commit、分支和 PR 交付。
+- `init.sh` 会拒绝在非 Git 仓库中运行，因为这个 workflow 依赖 `stage.lock` 状态、本地 commit 和分支管理。
 
 ### 2. 初始化后怎么开始跑
 
@@ -152,7 +150,7 @@ bash /path/to/Agent-Workflow-Template/scripts/upgrade_workflow_rules.sh /path/to
 
 | 类别 | 处理方式 | 文件 |
 | --- | --- | --- |
-| 固定骨架 | 直接从 `scaffold/` 复制 | `.agent-workflow/docs/stage.lock`、`.agent-workflow/docs/run_log.md`、`.agent-workflow/docs/environment.md`、`.agent-workflow/docs/workflow/stage*.md`、`.agent-workflow/docs/wisdom.md`、`.agent-workflow/docs/antipatterns.md`、`.agent-workflow/docs/blockers.md`、`.agent-workflow/docs/plan/current.md`、`.agent-workflow/docs/plan/archive/README.md`、`.agent-workflow/issue_test/README.md`、`.agent-workflow/scripts/build_context.py`、`.agent-workflow/scripts/run_issue_tests.sh`、`.agent-workflow/scripts/deliver_pr.sh` |
+| 固定骨架 | 直接从 `scaffold/` 复制 | `.agent-workflow/docs/stage.lock`、`.agent-workflow/docs/run_log.md`、`.agent-workflow/docs/environment.md`、`.agent-workflow/docs/workflow/stage*.md`、`.agent-workflow/docs/wisdom.md`、`.agent-workflow/docs/antipatterns.md`、`.agent-workflow/docs/blockers.md`、`.agent-workflow/docs/plan/current.md`、`.agent-workflow/docs/plan/archive/README.md`、`.agent-workflow/issue_test/README.md`、`.agent-workflow/scripts/build_context.py`、`.agent-workflow/scripts/run_issue_tests.sh`、`.agent-workflow/scripts/start_agent.sh` |
 | AI 填充 | 先复制模板，再调用 AI 按目标仓库事实填充 | `.agent-workflow/docs/overview.md`、`.agent-workflow/docs/architecture.md`、`.agent-workflow/docs/conventions.md`、`.agent-workflow/docs/quality.md`、`.agent-workflow/docs/security.md`、`.agent-workflow/docs/progress.md`、`.agent-workflow/docs/plan/backlog.md` |
 | 脚本直写 | 复制后由脚本替换占位符 | `.agent-workflow/docs/decisions.md` 中的 `D-001` 日期和初始化背景 |
 | 延后复制 | 在 AI 填充结束后再复制，避免影响初始化 prompt | `.agent-workflow/AGENTS.md` |
@@ -200,7 +198,7 @@ Agent-Workflow-Template/
 | Control 层 | `.agent-workflow/AGENTS.md`、`.agent-workflow/docs/stage.lock`、`.agent-workflow/docs/workflow/stage*.md` | 定义 agent 启动协议、当前状态和 Stage 跳转规则 |
 | Context 层 | `.agent-workflow/docs/overview.md`、`architecture.md`、`conventions.md`、`environment.md`、`quality.md`、`security.md`、`progress.md`、`run_log.md`、`decisions.md`、`blockers.md`、`wisdom.md`、`antipatterns.md`、`.agent-workflow/docs/plan/*` | 提供项目事实、规则、环境前提、计划、运行历史和阻塞信息 |
 | Harness 层 | `.agent-workflow/scripts/build_context.py`、`.agent-workflow/issue_test/*.sh`、`.agent-workflow/scripts/run_issue_tests.sh` | 机械装载上下文，机械执行累积回归 |
-| Delivery 层 | `git commit`、`git push`、`.agent-workflow/scripts/deliver_pr.sh`、`.agent-workflow/docs/plan/archive/*` | 把变更转成可交付结果，并沉淀归档 |
+| Delivery 层 | `git commit`、`.agent-workflow/docs/plan/archive/*` | 把变更转成本地可交付结果，并沉淀归档 |
 
 ### 架构关系图
 
@@ -219,7 +217,7 @@ flowchart LR
         DOCS[".agent-workflow/docs/*.md"]
         IT[".agent-workflow/issue_test/*.sh"]
         SUITE[".agent-workflow/scripts/run_issue_tests.sh"]
-        GIT["git / push / PR / archive"]
+        GIT["git / local commit / archive"]
     end
 
     INIT --> SCF
@@ -319,14 +317,13 @@ flowchart TD
     S3 -->|同一错误修复超过 3 次<br/>或 issue test 有效性无法判断| STOP
 
     S4 -->|最终回归失败| S3
-    S4 -->|PR 就绪或 handoff 已写明| S5["Stage 5<br/>Reflection"]
+    S4 -->|本地交付摘要已写明| S5["Stage 5<br/>Reflection"]
     S4 -->|无法形成可交付本地 commit| STOP
 
     S5 --> S6["Stage 6<br/>Entropy Check"]
     S5 -->|REFLECT 缺失或不完整| STOP
 
-    S6 -->|只改文档且 merge / auto-merge 成功| END
-    S6 -->|merge 受阻但 handoff 已补齐| END
+    S6 -->|只改文档并完成状态收口| END
     S6 -->|熵检查中改了代码| S3
     S6 -->|无法判断文档和代码谁对| STOP
 ```
@@ -338,9 +335,9 @@ flowchart TD
 | Stage 1 | `stage.lock`、`progress.md`、`blockers.md`、`plan/current.md` | 路由结果：结束当前 run，或进入 Stage 2 / Stage 3 | `.agent-workflow/docs/stage.lock` |
 | Stage 2 | `plan/backlog.md`、`decisions.md`、`overview.md`、`antipatterns.md` | 确定 `issue_id`、切到当前 issue 的独立分支、创建当前 issue test、写好 `current.md`、把状态推进到 Stage 3 | Git 当前工作分支、`.agent-workflow/issue_test/<issue_id>.sh`、`.agent-workflow/docs/plan/current.md`、`.agent-workflow/docs/stage.lock`，必要时改 `.agent-workflow/docs/overview.md` 和 `.agent-workflow/docs/decisions.md` |
 | Stage 3 | `plan/current.md`、`security.md`、当前 issue test、历史 issue tests、业务代码 | 代码实现完成，完整回归通过，推进到 Stage 4 | 业务代码、测试、`.agent-workflow/docs/plan/current.md`、`.agent-workflow/docs/stage.lock`，必要时改 `.agent-workflow/docs/architecture.md` 和 `.agent-workflow/docs/decisions.md` |
-| Stage 4 | `plan/current.md`、`quality.md`、完整回归结果、git 远端状态 | 本地 commit、PR URL 或人工 handoff、进度更新、计划归档、推进到 Stage 5 | Git 历史、`.agent-workflow/docs/progress.md`、`.agent-workflow/docs/plan/archive/<issue_id>.md`、`.agent-workflow/docs/plan/current.md`、`.agent-workflow/docs/plan/backlog.md`、`.agent-workflow/docs/stage.lock` |
+| Stage 4 | `plan/current.md`、`quality.md`、完整回归结果、本地 git 状态 | 本地 commit、本地交付摘要、进度更新、计划归档、推进到 Stage 5 | Git 历史、`.agent-workflow/docs/progress.md`、`.agent-workflow/docs/plan/archive/<issue_id>.md`、`.agent-workflow/docs/plan/current.md`、`.agent-workflow/docs/plan/backlog.md`、`.agent-workflow/docs/stage.lock` |
 | Stage 5 | `decisions.md`、归档计划、当前 issue 上下文 | 反思结果、REFLECT 文件、可复用经验或反模式、推进到 Stage 6 | `.agent-workflow/docs/plan/archive/REFLECT-<issue_id>.md`、`.agent-workflow/docs/wisdom.md`、`.agent-workflow/docs/antipatterns.md`、`.agent-workflow/docs/stage.lock`，必要时改 `.agent-workflow/docs/decisions.md`、`.agent-workflow/docs/architecture.md`、`.agent-workflow/docs/conventions.md` |
-| Stage 6 | 全局文档、`progress.md`、`decisions.md`、`plan/archive/<issue_id>.md`、代码现状、PR 状态 | 文档与代码对齐；若只改文档则尝试最终 merge / auto-merge 后结束 run；若改了代码则回到 Stage 3 | `.agent-workflow/docs/*.md`、`.agent-workflow/docs/stage.lock`、必要时补写 `.agent-workflow/docs/plan/archive/<issue_id>.md`，以及最终远端 merge 状态 |
+| Stage 6 | 全局文档、`progress.md`、`decisions.md`、`plan/archive/<issue_id>.md`、代码现状 | 文档与代码对齐；若只改文档则收口当前 run；若改了代码则回到 Stage 3 | `.agent-workflow/docs/*.md`、`.agent-workflow/docs/stage.lock`、必要时补写 `.agent-workflow/docs/plan/archive/<issue_id>.md` |
 
 ## 每个 Stage 的流程
 
@@ -403,15 +400,15 @@ flowchart TD
 1. 再跑一次完整 issue 回归，作为最终 gate
 2. 按 `.agent-workflow/docs/quality.md` 做人工自查
 3. 创建可交付的本地 commit
-4. 执行 `bash .agent-workflow/scripts/deliver_pr.sh ensure --base <base-branch>`，推送当前 issue 分支并创建或复用 PR
-5. 如果远端交付受网络、权限或宿主环境限制，可以降级为“本地交付 + 人工 handoff”
+4. 记录本地交付摘要（commit hash、验证结论，必要时附人工下一步）
+5. 若团队后续还有额外发布动作，由人类在 workflow 之外处理
 6. 更新 `.agent-workflow/docs/progress.md`
-7. 归档 `.agent-workflow/docs/plan/current.md` 到 `.agent-workflow/docs/plan/archive/<issue_id>.md`，写入 PR URL 或 handoff 信息
+7. 归档 `.agent-workflow/docs/plan/current.md` 到 `.agent-workflow/docs/plan/archive/<issue_id>.md`，写入本地交付摘要
 8. 清空并重置 `.agent-workflow/docs/plan/current.md`
 9. 把对应 backlog 条目标为 `[x]`
 10. 更新 `.agent-workflow/docs/stage.lock` 到 Stage 5
 
-这里的关键不是“Stage 4 就要 merge 成功”，而是“必须先形成可复现、可 handoff 的交付状态，并把 PR 准备好交给 Stage 6 收口”。
+这里的关键不是额外发布流程，而是“必须先形成可复现、可 handoff 的本地交付状态，并把归档写完整交给 Stage 6 收口”。
 
 ### Stage 5: Reflection
 
@@ -439,12 +436,11 @@ flowchart TD
 3. 如果发现代码和文档记录的意图冲突，就修代码并补测试
 4. 检查 `.agent-workflow/docs/decisions.md` 中是否需要做 compaction
 5. 如果只改文档，先写回 `stage1/done/previous=stage6`
-6. 然后执行 `git push` 和 `bash .agent-workflow/scripts/deliver_pr.sh merge --merge-method squash`
-7. 若 merge 直接成功或成功开启 auto-merge，本次 run 结束
-8. 若 merge 因环境或权限受阻，则把 handoff 追加写进归档后结束
-9. 如果改了代码，跳回 Stage 3，再走一遍实现到交付的闭环
+6. 更新最终 run_log 和归档中的交付摘要
+7. 本次 run 在本地状态上结束；若还有 workflow 外动作，由人类自行继续
+8. 如果改了代码，跳回 Stage 3，再走一遍实现到交付的闭环
 
-因此，Stage 6 不是“收尾文书工作”，而是整个状态机里最后一道一致性检查和最终 merge 收口点。
+因此，Stage 6 不是“收尾文书工作”，而是整个状态机里最后一道一致性检查和最终状态收口点。
 
 ## 这个模板的核心约束
 

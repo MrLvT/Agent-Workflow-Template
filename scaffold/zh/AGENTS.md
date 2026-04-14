@@ -82,7 +82,7 @@ python .agent-workflow/scripts/build_context.py --stage <current>
 8. 进入 Stage 3 前，必须存在当前 issue 对应的 `.agent-workflow/issue_test/<meta.issue_id>.sh`；后续 issue 不得删除、跳过或弱化历史 issue tests 来规避回归。
 9. 连续运行多个 issue 时，默认由 `scripts/start_agent.sh` 负责在 issue 之间重启一个全新的 Codex session；同一个 session 里最多只完整闭环一个新 issue，避免上下文持续膨胀。
 10. 遇到无法自行解决的问题，写入 `.agent-workflow/docs/blockers.md` 后停止，不得绕过阻塞继续执行。
-11. Stage 4 负责创建或更新 PR，不负责最终 merge；Stage 6 才负责最终 merge / auto-merge。若 Stage 4 或 Stage 6 的远端交付受网络、权限或宿主环境限制阻塞，可以退化为“本地交付 / merge handoff”，但必须把本地 commit hash、失败命令和下一步人工动作写进归档记录。
+11. Stage 4 负责形成可复现的本地交付状态并完成归档；Stage 6 负责文档与状态收口。workflow 到本地交付与状态收口即结束；若团队还有额外发布或同步动作，由人类在 workflow 之外自行处理。
 12. `.agent-workflow/docs/run_log.md` 必须持续维护：Stage 2 写清目标，Stage 4/6 补具体执行与结果，run 停止时补齐结束时间与最终状态。
 13. 若后续 run 发现新的环境事实（如 Slurm、conda、CUDA、登录节点限制、必须通过调度器执行等），必须立即更新 `.agent-workflow/docs/environment.md`，不要只停留在聊天上下文。
 14. 任何实验、评测或 smoke test 运行后，必须把结果存入 `results/issue<issue_id>/`，并在 `results/issue<issue_id>/SUMMARY.md` 追加总结，至少记录实验设定、模型/工作流、input length、结果与尝试分析。

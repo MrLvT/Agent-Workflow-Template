@@ -28,13 +28,13 @@
 - [ ] Changes are reflected in relevant documents
 - [ ] Important decisions are written to `.agent-workflow/docs/decisions.md`
 - [ ] `.agent-workflow/docs/progress.md` reflects the current state
-- [ ] Delivery status is recorded: archive contains a PR URL and Stage 6 completed merge / auto-merge, or a "local delivery / merge handoff" entry is present
+- [ ] Delivery status is recorded: the archive contains the local delivery summary (commit hash, verification conclusion, and manual next step when needed)
 
 ### Security
 
 - [ ] No sensitive information leaked
 - [ ] Authentication/authorization changes have been reviewed (if applicable)
-- [ ] If a PR exists, change risks are noted in the PR description
+- [ ] If a change has security impact, the risk is noted in the archive or handoff record
 
 ## issue_test Mechanism (fixed)
 

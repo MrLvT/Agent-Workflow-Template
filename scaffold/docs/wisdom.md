@@ -17,7 +17,7 @@
 ```markdown
 ## W-00X 标题
 
-- 来源：<issue_id> / PR 链接
+- 来源：<issue_id> / 本地交付 commit hash
 - 适用场景：
 - 模式描述：
 - 反例（不适用时）：

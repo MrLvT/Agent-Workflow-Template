@@ -116,8 +116,11 @@ MANAGED_FILES=(
     "issue_test/README.md"
     "scripts/build_context.py"
     "scripts/run_issue_tests.sh"
-    "scripts/deliver_pr.sh"
     "scripts/start_agent.sh"
+)
+
+OBSOLETE_WORKFLOW_FILES=(
+    "scripts/deliver_pr.sh"
 )
 
 usage() {
@@ -484,6 +487,17 @@ copy_managed_file() {
     cp "$SCAFFOLD_DIR/$relative_path" "$TARGET_DIR/$relative_path"
 }
 
+remove_obsolete_workflow_file() {
+    local rel_path="$1"
+    local dst="${TARGET_DIR}/${rel_path}"
+
+    if [[ ! -e "$dst" ]]; then
+        return
+    fi
+
+    rm -rf "$dst"
+}
+
 relative_to_target() {
     local path="$1"
     printf '%s\n' "${path#"$TARGET_DIR"/}"
@@ -554,7 +568,6 @@ ensure_scaffold_is_valid() {
         "issue_test/README.md"
         "scripts/build_context.py"
         "scripts/run_issue_tests.sh"
-        "scripts/deliver_pr.sh"
         "scripts/start_agent.sh"
     )
     local f=""
@@ -885,8 +898,10 @@ copy_template_skeleton() {
     mkdir -p "$TARGET_DIR/scripts"
     copy_managed_file "scripts/build_context.py"
     copy_managed_file "scripts/run_issue_tests.sh"
-    copy_managed_file "scripts/deliver_pr.sh"
     copy_managed_file "scripts/start_agent.sh"
+    for obsolete_path in "${OBSOLETE_WORKFLOW_FILES[@]}"; do
+        remove_obsolete_workflow_file "$obsolete_path"
+    done
 
     # ── 需要 Agent 填充的模板文件 ──────────────────────────────────
     # 以下文件以空白模板复制，init.sh 后续步骤会调用 Agent 填充。
@@ -1052,7 +1067,7 @@ conventions_prompt() {
 **Git 规范**：
 - Commit Message：从 git log 推断实际格式。如果用 conventional commits，写明具体的 type 枚举。如果是自由格式，也如实描述
 - Branch 命名：从 git branch 推断实际格式
-- PR 规范：如果有 PR template，读取并总结
+- 交付记录规范：如果仓库有 handoff / release / 变更记录模板，读取并总结
 
 ## 规则
 - 只收录靠 agent 自觉遵守的风格性约束。被 linter 强制执行的规则不写在这里
@@ -1487,7 +1502,7 @@ generate_audit_report() {
 
     echo ""
     echo "## $(m "Risk Notes" "风险提示")"
-    echo "- $(m "Git history, branch naming, and PR conventions often cannot be fully inferred from the local repo alone — review these docs manually." "Git 历史、分支命名和 PR 规范经常无法仅从本地仓库完整推断，相关文档需人工复核。")"
+    echo "- $(m "Git history, branch naming, and delivery conventions often cannot be fully inferred from the local repo alone — review these docs manually." "Git 历史、分支命名和交付规范经常无法仅从本地仓库完整推断，相关文档需人工复核。")"
     echo "- $(m "Security boundaries, protected paths, and auth patterns may be hidden in deploy environments or private config — local scan gives conservative results." "安全边界、受保护路径和认证模式可能隐藏在部署环境或私有配置中，本地扫描只能给出保守结论。")"
     echo "- $(m "If the repo has no explicit test/lint config, quality.md may still contain 'not configured' or \`<command>\` placeholders — verify manually." "若仓库没有显式原生测试/静态检查配置，quality.md 中可能仍保留"当前未配置"或 \`<command>\` 占位，需要人工确认。")"
     echo "- $(m "Business scope and Out of Scope often need product/project context that code scanning alone cannot provide." "业务范围与 Out of Scope 往往需要产品/项目背景信息，代码扫描只能提取当前可见边界。")"
@@ -1697,7 +1712,7 @@ if git -C "$REPO_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     info "$(m "Target directory is a Git repository." "检测到目标目录是 Git 仓库。")"
 else
     error "$(m "Error: target directory is not a Git repository." "错误：目标目录不是 Git 仓库。")"
-    echo "$(m "Agent Workflow relies on Git (stage.lock commits, branch management, PR flow)." "Agent Workflow 的核心机制（stage.lock commit、branch 管理、PR 流程）强依赖 Git。")"
+    echo "$(m "Agent Workflow relies on Git (stage.lock state, local commits, branch management)." "Agent Workflow 的核心机制（stage.lock 状态、本地 commit、分支管理）强依赖 Git。")"
     echo "$(m "Please run 'git init && git commit' in the target directory first." "请先在目标目录执行 git init && git commit，再重新运行 init.sh。")"
     exit 1
 fi

@@ -37,10 +37,10 @@
 - Example: `codex/42-add-user-auth`
 - Teams may substitute their own prefix for `codex`, but must keep the one-issue-one-branch rule
 
-### PR Conventions
+### Delivery Record Convention
 
-- Title format: matches commit message format
-- Required description fields: background, approach, testing, risks
+- The archive's delivery summary must include at least the local commit hash, verification conclusion, and the next human step when needed
+- If there is security or release risk, it must be written in the archive or handoff record
 
 ## Experiment Result Convention
 

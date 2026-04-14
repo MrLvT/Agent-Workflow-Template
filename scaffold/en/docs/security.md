@@ -24,6 +24,6 @@
 
 ## Security Change Rules
 
-1. Changes touching authentication, permissions, or credentials must be labeled `security-impact` in the PR.
+1. Changes touching authentication, permissions, or credentials must be labeled `security-impact` in the archive or handoff record.
 2. All sensitive values must be injected via environment — hardcoding is forbidden.
 3. On discovering a leak, rotate the credential first, then fix the code and documentation.

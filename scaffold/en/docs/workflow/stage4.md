@@ -25,25 +25,18 @@ git commit   # message format: see .agent-workflow/docs/conventions.md
 ```
 
 - If the business changes for the current issue are already committed locally, do not create an empty commit
-- The goal of this step is to ensure a handoff-ready local commit exists
+- The goal of this step is to ensure a reproducible, handoff-ready local commit exists
 
-### Step 4: Create or update PR (do not merge in this stage)
+### Step 4: Record local delivery state
 
-Preferred approach:
+Prepare a local delivery summary inside the current issue archive. It must answer at least:
 
-```bash
-bash .agent-workflow/scripts/deliver_pr.sh ensure --base <base-branch>
-```
+- What is the deliverable local commit hash?
+- What is the verification conclusion? (at minimum the issue regression result)
+- If a human needs to continue, what is the next action? (for example manual acceptance, manual release, or manual sync to another environment)
 
-- This script pushes the current branch and creates or reuses the corresponding PR
-- If custom title or body is needed, pass `--title` and/or `--body-file`
-- PR exists or was successfully created → record PR URL in the archive and note "Stage 6 will attempt the final merge", then continue
-- If failure is caused by network, DNS, permissions, sandbox restrictions, or `gh` unavailability, retry at most 3 times, then fall back to **local delivery + manual handoff**
-- Local delivery + manual handoff is not a failure: as long as a local commit exists and verification passed, continue
-- Handoff record must include:
-  - Local commit hash
-  - Failed command and error summary
-  - What the human must do next (e.g. push, open PR, provide credentials)
+- At this point the workflow already considers delivery formed locally; do not treat any additional publication or synchronization step as a Stage 4 gate
+- If the repository team still has later follow-up actions, humans may handle them outside the workflow
 
 ### Step 5: Update progress.md
 
@@ -55,7 +48,7 @@ Append the current issue's factual execution summary to `.agent-workflow/docs/ru
 
 - Which issue / fix was completed
 - The key actions taken (code, tests, delivery)
-- The tangible outcome (tests passed, local commit created, PR URL or handoff)
+- The tangible outcome (tests passed, local commit created, local delivery summary)
 
 ### Step 5.8: Check experiment result directory (if any)
 
@@ -73,9 +66,11 @@ cp .agent-workflow/docs/plan/current.md .agent-workflow/docs/plan/archive/<meta.
 ```
 
 - The archive must retain the test script path for the current issue: `.agent-workflow/issue_test/<meta.issue_id>.sh`
-- The archive must include the delivery status:
-  - PR created or reused: write the PR URL, and note "Stage 6 will attempt the final merge"
-  - Local delivery + manual handoff: write the local commit hash, reason for failure, and human next steps
+- The archive must include the delivery summary:
+  - Local commit hash
+  - Current branch name (if an independent issue branch exists)
+  - Verification conclusion
+  - If a human needs to continue: next manual step
 - If the current issue ran experiments, evaluations, or smoke tests: record the result directory `results/issue<meta.issue_id>/` and the `SUMMARY.md` path
 - Do not move or delete `.agent-workflow/issue_test/<meta.issue_id>.sh`; it must remain in `.agent-workflow/issue_test/` to participate in future regressions
 
@@ -122,9 +117,7 @@ previous: stage4
 - [ ] `bash .agent-workflow/scripts/run_issue_tests.sh` outputs `ISSUE TESTS: PASS`
 - [ ] All manual review items in `.agent-workflow/docs/quality.md` passed
 - [ ] A deliverable local commit exists
-- [ ] One of the following is complete:
-  - PR created or reused, and the archive records the PR URL and "Stage 6 will attempt the final merge"
-  - The archive records "local delivery + manual handoff" with the commit hash, reason, and next steps
+- [ ] The archive records the local delivery summary (commit hash, verification conclusion, and next manual step when needed)
 - [ ] `.agent-workflow/docs/progress.md` updated
 - [ ] `.agent-workflow/docs/run_log.md` appended with factual work and results for this issue
 - [ ] If this issue ran experiments, evaluations, or smoke tests, `results/issue<meta.issue_id>/SUMMARY.md` exists and is complete
@@ -139,4 +132,3 @@ previous: stage4
 
 - `.agent-workflow/scripts/run_issue_tests.sh` FAIL → update stage.lock (current: stage3, status: in_progress), return to Stage 3
 - Cannot form a reproducible local delivery commit → write to `.agent-workflow/docs/blockers.md`, update stage.lock (status: failed), stop, notify human
-- Cannot determine whether PR creation failure has been fully captured as handoff info → write to `.agent-workflow/docs/blockers.md`, update stage.lock (status: failed), stop, notify human

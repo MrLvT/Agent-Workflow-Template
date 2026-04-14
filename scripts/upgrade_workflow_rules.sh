@@ -20,12 +20,15 @@ RULE_FILES=(
     "scripts/build_context.py"
     "scripts/start_agent.sh"
     "scripts/run_issue_tests.sh"
-    "scripts/deliver_pr.sh"
 )
 
 BOOTSTRAP_IF_MISSING=(
     "docs/environment.md"
     "docs/run_log.md"
+)
+
+OBSOLETE_FILES=(
+    "scripts/deliver_pr.sh"
 )
 
 MANUAL_REVIEW_FILES=(
@@ -38,13 +41,13 @@ EXECUTABLE_FILES=(
     "scripts/build_context.py"
     "scripts/start_agent.sh"
     "scripts/run_issue_tests.sh"
-    "scripts/deliver_pr.sh"
 )
 
 UPDATED_FILES=()
 CREATED_FILES=()
 UNCHANGED_FILES=()
 BOOTSTRAPPED_FILES=()
+REMOVED_FILES=()
 
 backup_root=""
 
@@ -101,6 +104,7 @@ record_change() {
         created) CREATED_FILES+=("$rel_path") ;;
         unchanged) UNCHANGED_FILES+=("$rel_path") ;;
         bootstrapped) BOOTSTRAPPED_FILES+=("$rel_path") ;;
+        removed) REMOVED_FILES+=("$rel_path") ;;
         *) die "Unknown change bucket: $bucket" ;;
     esac
 }
@@ -158,6 +162,26 @@ copy_if_missing() {
     mkdir -p "$(dirname "$dst")"
     cp "$src" "$dst"
     record_change bootstrapped "$rel_path"
+}
+
+remove_obsolete_file() {
+    local rel_path="$1"
+    local dst="$WORKFLOW_ROOT/$rel_path"
+
+    if [[ ! -e "$dst" ]]; then
+        return
+    fi
+
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        record_change removed "$rel_path"
+        return
+    fi
+
+    ensure_backup_root
+    mkdir -p "$backup_root/$(dirname "$rel_path")"
+    cp -R "$dst" "$backup_root/$rel_path"
+    rm -rf "$dst"
+    record_change removed "$rel_path"
 }
 
 ensure_exclude_pattern() {
@@ -312,6 +336,10 @@ for rel_path in "${BOOTSTRAP_IF_MISSING[@]}"; do
     copy_if_missing "$rel_path"
 done
 
+for rel_path in "${OBSOLETE_FILES[@]}"; do
+    remove_obsolete_file "$rel_path"
+done
+
 ensure_exclude_pattern
 
 if [[ "$DRY_RUN" -eq 0 ]]; then
@@ -328,6 +356,7 @@ note "  synced language: $RESOLVED_LANG"
 note "  updated files: ${#UPDATED_FILES[@]}"
 note "  created files: ${#CREATED_FILES[@]}"
 note "  bootstrapped missing files: ${#BOOTSTRAPPED_FILES[@]}"
+note "  removed obsolete files: ${#REMOVED_FILES[@]}"
 note "  unchanged files: ${#UNCHANGED_FILES[@]}"
 note "  .git/info/exclude entry: $EXCLUDE_RESULT"
 if [[ -n "$backup_root" ]]; then
@@ -344,6 +373,10 @@ done
 
 for rel_path in "${BOOTSTRAPPED_FILES[@]}"; do
     note "  bootstrapped: $rel_path"
+done
+
+for rel_path in "${REMOVED_FILES[@]}"; do
+    note "  removed: $rel_path"
 done
 
 printf '\n'

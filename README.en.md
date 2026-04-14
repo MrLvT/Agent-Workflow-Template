@@ -14,11 +14,9 @@ This workflow has been fully validated in a real GitHub repository — not just 
 - Target repository: [cf3i/MiniAVLtree](https://github.com/cf3i/MiniAVLtree)
 - Task: Add "HTML visualization page for AVL tree" to `.agent-workflow/docs/plan/backlog.md`
 - Stage 2: Created independent branch `codex/2-html-avl-visualizer` per the rules
-- Stage 4: Created PR [#2](https://github.com/cf3i/MiniAVLtree/pull/2) via `bash .agent-workflow/scripts/deliver_pr.sh ensure --base main`
-- Stage 6: Completed final merge via `bash .agent-workflow/scripts/deliver_pr.sh merge --merge-method squash`
+- Stage 4: Formed a local delivery commit and archived the delivery summary
+- Stage 6: Completed documentation/state closeout and returned the repository to `stage1 / done / previous=stage6`
 - Final state: Target repository returned to `stage1 / done / previous=stage6`
-
-This production regression also caught a real bug: the `--jq` flag quoting in `deliver_pr.sh` when outputting `MERGE_COMMIT_SHA` was incorrect. The bug was fixed and written back to the template.
 
 ## How to Use This Project
 
@@ -73,7 +71,7 @@ Additional notes:
 
 - The script's built-in defaults are `claude + gpt-5.4 + xhigh`.
 - If you use `codex` without explicitly specifying an execution mode, the script defaults to `--ultra`; the independent docs review still stays enabled unless you explicitly pass `--no-docs-review`.
-- `init.sh` will refuse to run in a non-Git repository because this workflow depends on `stage.lock` commits, branches, and PR delivery.
+- `init.sh` will refuse to run in a non-Git repository because this workflow depends on `stage.lock` state, local commits, and branch management.
 
 ### 2. How to Start After Initialization
 
@@ -153,7 +151,7 @@ If the current issue includes experiments, evaluations, or smoke tests, results 
 
 | Category | How it's handled | Files |
 | --- | --- | --- |
-| Fixed skeleton | Copied directly from `scaffold/<lang>/` | `.agent-workflow/docs/stage.lock`, `.agent-workflow/docs/run_log.md`, `.agent-workflow/docs/environment.md`, `.agent-workflow/docs/workflow/stage*.md`, `.agent-workflow/docs/wisdom.md`, `.agent-workflow/docs/antipatterns.md`, `.agent-workflow/docs/blockers.md`, `.agent-workflow/docs/plan/current.md`, `.agent-workflow/docs/plan/archive/README.md`, `.agent-workflow/issue_test/README.md`, `.agent-workflow/scripts/build_context.py`, `.agent-workflow/scripts/run_issue_tests.sh`, `.agent-workflow/scripts/deliver_pr.sh` |
+| Fixed skeleton | Copied directly from `scaffold/<lang>/` | `.agent-workflow/docs/stage.lock`, `.agent-workflow/docs/run_log.md`, `.agent-workflow/docs/environment.md`, `.agent-workflow/docs/workflow/stage*.md`, `.agent-workflow/docs/wisdom.md`, `.agent-workflow/docs/antipatterns.md`, `.agent-workflow/docs/blockers.md`, `.agent-workflow/docs/plan/current.md`, `.agent-workflow/docs/plan/archive/README.md`, `.agent-workflow/issue_test/README.md`, `.agent-workflow/scripts/build_context.py`, `.agent-workflow/scripts/run_issue_tests.sh`, `.agent-workflow/scripts/start_agent.sh` |
 | AI-filled | Template copied first, then AI fills it based on target repo facts | `.agent-workflow/docs/overview.md`, `.agent-workflow/docs/architecture.md`, `.agent-workflow/docs/conventions.md`, `.agent-workflow/docs/quality.md`, `.agent-workflow/docs/security.md`, `.agent-workflow/docs/progress.md`, `.agent-workflow/docs/plan/backlog.md` |
 | Script-written | Copied, then placeholders replaced by the script | `.agent-workflow/docs/decisions.md` — D-001 date and initialization background inserted by `sed` |
 | Deferred copy | Copied after AI filling completes to avoid affecting the initialization prompt | `.agent-workflow/AGENTS.md` |
@@ -207,7 +205,7 @@ Two points to note:
 | Control | `.agent-workflow/AGENTS.md`, `.agent-workflow/docs/stage.lock`, `.agent-workflow/docs/workflow/stage*.md` | Define agent startup protocol, current state, and Stage transition rules |
 | Context | `.agent-workflow/docs/overview.md`, `architecture.md`, `conventions.md`, `environment.md`, `quality.md`, `security.md`, `progress.md`, `run_log.md`, `decisions.md`, `blockers.md`, `wisdom.md`, `antipatterns.md`, `.agent-workflow/docs/plan/*` | Provide project facts, rules, environment prerequisites, plans, run history, and blocker information |
 | Harness | `.agent-workflow/scripts/build_context.py`, `.agent-workflow/issue_test/*.sh`, `.agent-workflow/scripts/run_issue_tests.sh` | Mechanically load context, mechanically run cumulative regression |
-| Delivery | `git commit`, `git push`, `.agent-workflow/scripts/deliver_pr.sh`, `.agent-workflow/docs/plan/archive/*` | Convert changes into deliverable results and archive them |
+| Delivery | `git commit`, `.agent-workflow/docs/plan/archive/*` | Convert changes into locally deliverable results and archive them |
 
 ### Architecture Diagram
 
@@ -226,7 +224,7 @@ flowchart LR
         DOCS[".agent-workflow/docs/*.md"]
         IT[".agent-workflow/issue_test/*.sh"]
         SUITE[".agent-workflow/scripts/run_issue_tests.sh"]
-        GIT["git / push / PR / archive"]
+        GIT["git / local commit / archive"]
     end
 
     INIT --> SCF
@@ -326,14 +324,13 @@ flowchart TD
     S3 -->|same error fixed more than 3 times<br/>or issue test validity unclear| STOP
 
     S4 -->|final regression fails| S3
-    S4 -->|PR ready or handoff written| S5["Stage 5<br/>Reflection"]
+    S4 -->|local delivery summary recorded| S5["Stage 5<br/>Reflection"]
     S4 -->|cannot form deliverable local commit| STOP
 
     S5 --> S6["Stage 6<br/>Entropy Check"]
     S5 -->|REFLECT missing or incomplete| STOP
 
-    S6 -->|docs-only change and merge/auto-merge succeeds| END
-    S6 -->|merge blocked but handoff complete| END
+    S6 -->|docs-only change and state closeout complete| END
     S6 -->|entropy check found code changes| S3
     S6 -->|cannot determine whether docs or code is correct| STOP
 ```
@@ -345,16 +342,16 @@ flowchart TD
 | Stage 1 | `stage.lock`, `progress.md`, `blockers.md`, `plan/current.md` | Routing result: end current run, or proceed to Stage 2 / Stage 3 | `.agent-workflow/docs/stage.lock` |
 | Stage 2 | `plan/backlog.md`, `decisions.md`, `overview.md`, `antipatterns.md` | Determined `issue_id`, switched to the issue's branch, created issue test, written `current.md`, state advanced to Stage 3 | Current git branch, `.agent-workflow/issue_test/<issue_id>.sh`, `.agent-workflow/docs/plan/current.md`, `.agent-workflow/docs/stage.lock`, optionally `.agent-workflow/docs/overview.md` and `.agent-workflow/docs/decisions.md` |
 | Stage 3 | `plan/current.md`, `security.md`, current issue test, historical issue tests, business code | Code implementation complete, full regression passes, state advanced to Stage 4 | Business code, tests, `.agent-workflow/docs/plan/current.md`, `.agent-workflow/docs/stage.lock`, optionally `.agent-workflow/docs/architecture.md` and `.agent-workflow/docs/decisions.md` |
-| Stage 4 | `plan/current.md`, `quality.md`, full regression results, remote git state | Local commit, PR URL or manual handoff, progress update, plan archived, state advanced to Stage 5 | Git history, `.agent-workflow/docs/progress.md`, `.agent-workflow/docs/plan/archive/<issue_id>.md`, `.agent-workflow/docs/plan/current.md`, `.agent-workflow/docs/plan/backlog.md`, `.agent-workflow/docs/stage.lock` |
+| Stage 4 | `plan/current.md`, `quality.md`, full regression results, local git state | Local commit, local delivery summary, progress update, plan archived, state advanced to Stage 5 | Git history, `.agent-workflow/docs/progress.md`, `.agent-workflow/docs/plan/archive/<issue_id>.md`, `.agent-workflow/docs/plan/current.md`, `.agent-workflow/docs/plan/backlog.md`, `.agent-workflow/docs/stage.lock` |
 | Stage 5 | `decisions.md`, archived plan, current issue context | Reflection result, REFLECT file, reusable patterns or antipatterns, state advanced to Stage 6 | `.agent-workflow/docs/plan/archive/REFLECT-<issue_id>.md`, `.agent-workflow/docs/wisdom.md`, `.agent-workflow/docs/antipatterns.md`, `.agent-workflow/docs/stage.lock`, optionally `.agent-workflow/docs/decisions.md`, `.agent-workflow/docs/architecture.md`, `.agent-workflow/docs/conventions.md` |
-| Stage 6 | All docs, `progress.md`, `decisions.md`, `plan/archive/<issue_id>.md`, code state, PR state | Docs and code aligned; if docs-only, attempt final merge/auto-merge and end run; if code changed, return to Stage 3 | `.agent-workflow/docs/*.md`, `.agent-workflow/docs/stage.lock`, optionally append to `.agent-workflow/docs/plan/archive/<issue_id>.md`, and final remote merge state |
+| Stage 6 | All docs, `progress.md`, `decisions.md`, `plan/archive/<issue_id>.md`, code state | Docs and code aligned; if docs-only, close out the current run; if code changed, return to Stage 3 | `.agent-workflow/docs/*.md`, `.agent-workflow/docs/stage.lock`, and optionally append to `.agent-workflow/docs/plan/archive/<issue_id>.md` |
 
 ## Core Constraints of This Template
 
-- One issue per run.
+- If there is no error and no blocker, one overall run may continue across multiple issues.
 - Every issue must be bound to an `.agent-workflow/issue_test/<issue_id>.sh`.
 - Historical issue tests are retained indefinitely; hiding regressions by deleting or weakening old tests is not allowed.
-- Every `.agent-workflow/docs/stage.lock` update must be a separate commit.
+- `.agent-workflow/docs/stage.lock` updates are local workflow state by default; make separate status commits only when the team explicitly tracks `.agent-workflow/`.
 - Any blocker requires writing `.agent-workflow/docs/blockers.md` and stopping.
 - Documentation is not a manual — it is the agent's runtime input.
 
