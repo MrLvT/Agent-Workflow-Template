@@ -36,6 +36,8 @@
 - 默认格式：`codex/<issue_id>`
 - 示例：`codex/42-add-user-auth`
 - 若团队已有统一前缀，可替换 `codex`，但必须保持“一个 issue 一个分支”
+- 当上一个 issue 已完成、`stage.lock` 回到 `stage1/done/previous=stage6` 且工作区干净时，下一个 issue 可以直接从当前 HEAD 派生新分支，不强制先切回默认分支
+- 若团队要求每次新 issue 都必须先回默认分支，请在本节明确写出，并优先遵守团队约定
 
 ### 交付记录规范
 

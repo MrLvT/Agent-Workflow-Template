@@ -69,6 +69,7 @@ launcher_prompt() {
 运行时约束：
 - 这是由 `.agent-workflow/scripts/start_agent.sh` 拉起的全新 Codex session。
 - 本 session 允许从 `current: stage1`、`status: done`、`previous: stage6` 开始，继续路由到下一个 issue。
+- 若上一个 issue 已闭环且 git 仍停留在那个 issue 分支，只要工作区干净，就把它视为正常的本地连续交付起点；下一个 issue 分支可以直接从当前 HEAD 派生。
 - 当本 session 完成一个新的 issue 闭环，并再次回到 `current: stage1`、`status: done`、`previous: stage6` 时，请停止当前 session，不要继续领取更多 issue。
 - 停止后由外层启动脚本重启一个全新的 session，以清空上下文后再继续。
 EOF

@@ -66,6 +66,7 @@ Read .agent-workflow/AGENTS.md, then start working.
 Runtime constraint:
 - This is a fresh Codex session launched by `.agent-workflow/scripts/start_agent.sh`.
 - This session may begin from `current: stage1`, `status: done`, `previous: stage6` and route into the next issue.
+- If the previous issue already closed and git is still on that issue branch, treat it as a normal local continuation point as long as the working tree is clean; the next issue branch may be created directly from the current HEAD.
 - After this session completes one new issue loop and returns to `current: stage1`, `status: done`, `previous: stage6` again, stop instead of claiming more issues.
 - The outer launcher will then restart a brand-new session so context is cleared before the next issue.
 EOF

@@ -367,7 +367,7 @@ flowchart TD
 2. 从 `.agent-workflow/docs/plan/backlog.md` 里按 P0 → P1 → P2 选择一个未完成任务
 3. 对照 `.agent-workflow/docs/overview.md` 检查这个任务是否仍在项目范围内
 4. 生成 `issue_id`
-5. 创建并切换到当前 issue 的独立工作分支，默认命名 `codex/<issue_id>`
+5. 创建并切换到当前 issue 的独立工作分支，默认命名 `codex/<issue_id>`；若上一个 issue 刚闭环且工作区干净，可直接从当前已完成分支继续派生
 6. 创建 `.agent-workflow/issue_test/<issue_id>.sh`
 7. 把执行步骤写进 `.agent-workflow/docs/plan/current.md`
 8. 如果发生范围变化或关键技术选择，追加写入 `.agent-workflow/docs/decisions.md`

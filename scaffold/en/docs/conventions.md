@@ -36,6 +36,8 @@
 - Default format: `codex/<issue_id>`
 - Example: `codex/42-add-user-auth`
 - Teams may substitute their own prefix for `codex`, but must keep the one-issue-one-branch rule
+- After one issue is finished, `stage.lock` has returned to `stage1/done/previous=stage6`, and the working tree is clean, the next issue may branch directly from the current HEAD without first switching back to the default branch
+- If the team requires every new issue to restart from the default branch, write that rule explicitly here and follow it
 
 ### Delivery Record Convention
 

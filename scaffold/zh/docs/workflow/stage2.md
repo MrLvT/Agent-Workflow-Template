@@ -40,7 +40,8 @@
 - 当前已在 `codex/<issue_id>` → 继续
 - 本地已存在 `codex/<issue_id>` → 执行 `git switch codex/<issue_id>`
 - 当前在默认分支（优先按 `origin/HEAD` 推断，缺失时视为 `main`），且本地尚无 `codex/<issue_id>` → 执行 `git switch -c codex/<issue_id>`
-- 当前在与本 issue 无关的其他工作分支 → 停止并通知人类，避免把两个 issue 混到同一分支
+- 当前仍停留在上一个已完成 issue 的 workflow 分支（同前缀、不同 issue_id），且 `stage.lock` 已回到 `stage1/done/previous=stage6`、工作区干净、本地尚无 `codex/<issue_id>` → 允许直接执行 `git switch -c codex/<issue_id>`，从当前 HEAD 派生下一个 issue 分支；这属于本地连续交付的正常路径，不算把两个 issue 混到同一分支
+- 当前在与 workflow 无关的其他工作分支，或准备从上一个 issue 分支继续但工作区不干净 → 停止并通知人类，避免把未收口的改动混入新 issue
 - 若团队已在 `.agent-workflow/docs/conventions.md` 定义等价前缀，可替换 `codex`，但必须保持“一 issue 一分支”
 
 ### Step 4：创建当前 issue 的测试脚本

@@ -40,7 +40,8 @@ Default branch name: `codex/<issue_id>`
 - Already on `codex/<issue_id>` → continue
 - Branch `codex/<issue_id>` exists locally → run `git switch codex/<issue_id>`
 - On the default branch (infer from `origin/HEAD`; fall back to `main`) and `codex/<issue_id>` does not exist locally → run `git switch -c codex/<issue_id>`
-- On an unrelated working branch → stop and notify human to avoid mixing two issues on the same branch
+- Still on the previous completed workflow issue branch (same prefix, different issue_id), while `stage.lock` has already returned to `stage1/done/previous=stage6`, the working tree is clean, and `codex/<issue_id>` does not exist locally → it is safe to run `git switch -c codex/<issue_id>` directly from the current HEAD. This is the normal local-continuation path, not a mixed-issue branch
+- On an unrelated working branch, or trying to continue from the previous issue branch while the working tree is dirty → stop and notify the human to avoid carrying unfinished changes into the new issue
 - If the team has defined an equivalent prefix in `.agent-workflow/docs/conventions.md`, `codex` may be replaced — but the one-issue-one-branch rule must be maintained
 
 ### Step 4: Create the test script for the current issue

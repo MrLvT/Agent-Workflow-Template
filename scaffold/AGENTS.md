@@ -86,3 +86,4 @@ python .agent-workflow/scripts/build_context.py --stage <current>
 12. `.agent-workflow/docs/run_log.md` 必须持续维护：Stage 2 写清目标，Stage 4/6 补具体执行与结果，run 停止时补齐结束时间与最终状态。
 13. 若后续 run 发现新的环境事实（如 Slurm、conda、CUDA、登录节点限制、必须通过调度器执行等），必须立即更新 `.agent-workflow/docs/environment.md`，不要只停留在聊天上下文。
 14. 任何实验、评测或 smoke test 运行后，必须把结果存入 `results/issue<issue_id>/`，并在 `results/issue<issue_id>/SUMMARY.md` 追加总结，至少记录实验设定、模型/工作流、input length、结果与尝试分析。
+15. 当上一个 issue 已闭环、`stage.lock` 回到 `stage1/done/previous=stage6` 且工作区干净时，仍停留在上一个 issue 分支不算 blocker；Stage 2 可以从当前 HEAD 直接派生下一个 issue 分支。只有无关分支或脏工作区才视为分支阻塞。
