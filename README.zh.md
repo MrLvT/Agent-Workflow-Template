@@ -143,7 +143,7 @@ bash /path/to/Agent-Workflow-Template/scripts/upgrade_workflow_rules.sh /path/to
 
 也就是说，`backlog.md` 是开发入口，`current.md` 是执行中计划，`issue_test` 是验收脚本。
 
-如果当前 issue 包含实验、评测或 smoke test，实验结果必须写入 `results/issue<issue_id>/`，并在 `results/issue<issue_id>/SUMMARY.md` 中为每次实验追加总结，记录模型、工作流、input length、关键设定、结果与尝试分析。
+只有当前 issue **实际执行了会产出结果的实验、评测、benchmark 或探索性 smoke test**，才需要维护 `results/issue<issue_id>/`。一旦执行过，无论结果成功、失败还是结论不确定，都必须在 `results/issue<issue_id>/SUMMARY.md` 中为每次实验追加总结，记录模型、工作流、input length、关键设定、结果与尝试分析。`run_log.md` 负责流程记录，`SUMMARY.md` 只负责实验结果与分析。
 
 ### 3. `init.sh` 实际做了什么
 

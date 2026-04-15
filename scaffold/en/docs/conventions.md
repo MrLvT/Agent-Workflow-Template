@@ -46,9 +46,10 @@
 
 ## Experiment Result Convention
 
-- If the current issue runs experiments, evaluations, or smoke tests, the canonical result directory is `results/issue<issue_id>/`
+- Only issues that **actually execute result-producing experiments, evaluations, benchmarks, or exploratory smoke tests** need a result directory: `results/issue<issue_id>/`
 - Example directory: `results/issue1-smoke-test/`
-- This directory must contain `results/issue<issue_id>/SUMMARY.md`
+- If an experiment was only planned but never actually executed, do not create a placeholder directory or empty `SUMMARY.md`
+- Once such runs have actually been executed, `results/issue<issue_id>/SUMMARY.md` is mandatory regardless of whether the result is successful, failed, or inconclusive
 - After each experiment, append one section to `SUMMARY.md` with at least:
   - Experiment name / time
   - Goal or hypothesis
@@ -59,6 +60,8 @@
   - Raw log / artifact paths
   - Primary result and metrics
   - Attempted analysis of the result, including failed or inconclusive outcomes
+- `SUMMARY.md` is only for experiment facts, outcomes, and analysis; do not turn it into a Stage/process diary, branch history, or generic implementation recap
+- Run- or Stage-level process narration belongs in `.agent-workflow/docs/run_log.md`; per-issue delivery/reflection belongs in the archive or `REFLECT-<issue_id>.md`
 - Multiple experiments from the same issue may share one `SUMMARY.md`; raw logs, plots, JSON, CSV, and other artifacts should live in the same directory or its subdirectories
 
 ## Maintenance Rules

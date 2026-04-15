@@ -66,8 +66,8 @@ Write the execution steps into `.agent-workflow/docs/plan/current.md`, format re
 - Clearly record two verification commands:
   - Historical regression before implementation: `bash .agent-workflow/scripts/run_issue_tests.sh --exclude .agent-workflow/issue_test/<issue_id>.sh`
   - Full regression after implementation: `bash .agent-workflow/scripts/run_issue_tests.sh`
-- If the task includes experiments, evaluations, or smoke tests, record the planned result directory: `results/issue<issue_id>/`
-- If the task includes experiments, evaluations, or smoke tests, record the planned summary file: `results/issue<issue_id>/SUMMARY.md`
+- If the task plans result-producing experiments, evaluations, benchmarks, or exploratory smoke tests, record the planned result directory: `results/issue<issue_id>/`
+- If the task plans result-producing experiments, evaluations, benchmarks, or exploratory smoke tests, record the planned summary file: `results/issue<issue_id>/SUMMARY.md`
 
 ### Step 6: Record technical decisions (if any)
 
@@ -101,7 +101,7 @@ meta:
 - [ ] `.agent-workflow/issue_test/<issue_id>.sh` created, covering the target behavior of the current issue, and outputs diagnostic info on failure
 - [ ] `.agent-workflow/docs/plan/current.md` is non-empty and has checkable steps
 - [ ] `.agent-workflow/docs/plan/current.md` records the current issue test script path and both verification commands
-- [ ] If the current issue includes experiments, evaluations, or smoke tests, `.agent-workflow/docs/plan/current.md` records `results/issue<issue_id>/` and `SUMMARY.md`
+- [ ] If the current issue plans result-producing experiments, evaluations, benchmarks, or exploratory smoke tests, `.agent-workflow/docs/plan/current.md` records `results/issue<issue_id>/` and `SUMMARY.md`
 - [ ] `.agent-workflow/docs/run_log.md` records the current run goal and planned actions
 - [ ] `stage.lock.meta.issue_id` is written
 - [ ] `stage.lock` updated (current: stage3)

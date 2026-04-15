@@ -6,6 +6,7 @@ REPO_DIR="$(cd "${WORKFLOW_DIR}/.." && pwd)"
 MAX_RUNS="${CODEX_MAX_RUNS:-20}"
 RUN_COUNT=0
 VERBOSE="${CODEX_LAUNCHER_VERBOSE:-0}"
+STOP_REQUESTED=0
 
 usage() {
     cat <<'EOF'
@@ -25,6 +26,10 @@ note() {
     if [[ "$VERBOSE" == "1" ]]; then
         printf '[start_agent] %s\n' "$*" >&2
     fi
+}
+
+request_stop() {
+    STOP_REQUESTED=1
 }
 
 read_lock_field() {
@@ -144,8 +149,15 @@ done
     exit 1
 }
 
+trap 'request_stop' INT TERM
+
 cd "$REPO_DIR"
 while true; do
+    if [[ "$STOP_REQUESTED" == "1" ]]; then
+        note "Interrupt requested before starting the next fresh session. Stopping."
+        exit 130
+    fi
+
     RUN_COUNT=$((RUN_COUNT + 1))
 
     if [[ "$MAX_RUNS" -gt 0 && "$RUN_COUNT" -gt "$MAX_RUNS" ]]; then
@@ -155,11 +167,24 @@ while true; do
 
     note "Starting fresh Codex session #${RUN_COUNT}..."
 
+    set +e
     codex \
         -a never \
         --sandbox danger-full-access \
         -C "$REPO_DIR" \
         "$(launcher_prompt)"
+    codex_status=$?
+    set -e
+
+    if [[ "$STOP_REQUESTED" == "1" || "$codex_status" == "130" || "$codex_status" == "143" ]]; then
+        echo "[start_agent] Interrupted by user; stopping auto-restart." >&2
+        exit 130
+    fi
+
+    if [[ "$codex_status" -ne 0 ]]; then
+        echo "[start_agent] codex exited with status $codex_status; stopping auto-restart." >&2
+        exit "$codex_status"
+    fi
 
     case "$(should_restart_fresh)" in
         restart)

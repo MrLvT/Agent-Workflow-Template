@@ -54,10 +54,11 @@ bash .agent-workflow/scripts/run_issue_tests.sh
 
 ### Step 4.5: Record experiment results (if any)
 
-If this stage ran experiments, evaluations, or smoke tests:
+If this stage **actually executed result-producing experiments, evaluations, benchmarks, or exploratory smoke tests**:
 
 - The canonical result directory is `results/issue<meta.issue_id>/`
-- After each experiment, append one summary section to `results/issue<meta.issue_id>/SUMMARY.md`
+- After each executed run, append one summary section to `results/issue<meta.issue_id>/SUMMARY.md`
+- Failed or inconclusive runs, and runs that mainly ruled out a hypothesis, must be recorded too
 - Each summary must include at least:
   - Experiment name / time
   - Goal or hypothesis
@@ -68,6 +69,7 @@ If this stage ran experiments, evaluations, or smoke tests:
   - Raw log / artifact paths
   - Primary result and metrics
   - Attempted analysis, even if the result failed or remains inconclusive
+- `SUMMARY.md` must stay focused on experiment facts, outcome, and analysis. Do not turn it into a Stage recap, branch diary, commit history, or generic development-process summary; that belongs in `.agent-workflow/docs/run_log.md`
 
 ### Step 5: Update stage.lock
 
@@ -84,7 +86,7 @@ previous: stage3
 - [ ] `.agent-workflow/issue_test/<meta.issue_id>.sh` was executed before implementation; result matches the issue goal and produces sufficient diagnostic info on failure
 - [ ] When architecture boundaries changed, `.agent-workflow/docs/architecture.md` was updated and decisions.md was appended
 - [ ] When environment facts changed, `.agent-workflow/docs/environment.md` was updated; if default execution changed, decisions.md was appended
-- [ ] If this issue ran experiments, evaluations, or smoke tests, `results/issue<meta.issue_id>/SUMMARY.md` contains a summary entry for each experiment
+- [ ] If this issue actually executed result-producing experiments, evaluations, benchmarks, or exploratory smoke tests, `results/issue<meta.issue_id>/SUMMARY.md` contains a summary entry for each run, including failed and inconclusive ones
 - [ ] `bash .agent-workflow/scripts/run_issue_tests.sh` outputs `ISSUE TESTS: PASS`
 - [ ] `stage.lock` updated (current: stage4)
 - [ ] `stage.lock` updated; only create a separate status commit if the team explicitly tracks `.agent-workflow/`

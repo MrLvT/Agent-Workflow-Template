@@ -11,7 +11,7 @@
 2. 当前 issue 对应的测试脚本路径与覆盖目标
 3. 可逐步勾选的执行步骤
 4. 对应的验证记录（至少包含历史回归基线和完整回归结果）
-5. 若包含实验、评测或 smoke test：结果目录 `results/issue<issue_id>/` 与总结文件 `results/issue<issue_id>/SUMMARY.md`
+5. 若计划执行结果型实验、评测、benchmark 或探索性 smoke test：预留结果目录 `results/issue<issue_id>/` 与总结文件 `results/issue<issue_id>/SUMMARY.md`；若最终未实际执行，不需要创建占位目录
 
 ## 维护说明
 

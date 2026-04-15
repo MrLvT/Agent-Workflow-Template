@@ -49,14 +49,17 @@ Append the current issue's factual execution summary to `.agent-workflow/docs/ru
 - Which issue / fix was completed
 - The key actions taken (code, tests, delivery)
 - The tangible outcome (tests passed, local commit created, local delivery summary)
+- This is run-/Stage-level process narration; do not move this kind of workflow recap into `results/.../SUMMARY.md`
 
 ### Step 5.8: Check experiment result directory (if any)
 
-If the current issue ran experiments, evaluations, or smoke tests:
+If the current issue actually executed result-producing experiments, evaluations, benchmarks, or exploratory smoke tests:
 
 - Confirm the result directory is `results/issue<meta.issue_id>/`
 - Confirm `results/issue<meta.issue_id>/SUMMARY.md` exists
-- Confirm the summary covers every experiment and includes setup, model/workflow, input length, result, and attempted analysis
+- Confirm the summary covers every executed run, including failed or inconclusive ones
+- Confirm the summary includes setup, model/workflow, input length, result, and attempted analysis
+- Confirm `SUMMARY.md` stays focused on experiment result analysis rather than Stage/process narration
 
 ### Step 6: Archive current.md
 
@@ -71,7 +74,7 @@ cp .agent-workflow/docs/plan/current.md .agent-workflow/docs/plan/archive/<meta.
   - Current branch name (if an independent issue branch exists)
   - Verification conclusion
   - If a human needs to continue: next manual step
-- If the current issue ran experiments, evaluations, or smoke tests: record the result directory `results/issue<meta.issue_id>/` and the `SUMMARY.md` path
+- If the current issue actually executed result-producing experiments, evaluations, benchmarks, or exploratory smoke tests: record the result directory `results/issue<meta.issue_id>/` and the `SUMMARY.md` path
 - Do not move or delete `.agent-workflow/issue_test/<meta.issue_id>.sh`; it must remain in `.agent-workflow/issue_test/` to participate in future regressions
 
 ### Step 7: Clean up
@@ -93,7 +96,7 @@ cp .agent-workflow/docs/plan/current.md .agent-workflow/docs/plan/archive/<meta.
 2. Test script path and coverage goal for the current issue
 3. Step-by-step checkable execution steps
 4. Verification records (must include at least the historical regression baseline and full regression result)
-5. If experiments, evaluations, or smoke tests are involved: result directory `results/issue<issue_id>/` and summary file `results/issue<issue_id>/SUMMARY.md`
+5. If the issue plans result-producing experiments, evaluations, benchmarks, or exploratory smoke tests: result directory `results/issue<issue_id>/` and summary file `results/issue<issue_id>/SUMMARY.md`; if none are actually executed, no placeholder directory is needed
 
 ## Maintenance Notes
 
@@ -120,7 +123,7 @@ previous: stage4
 - [ ] The archive records the local delivery summary (commit hash, verification conclusion, and next manual step when needed)
 - [ ] `.agent-workflow/docs/progress.md` updated
 - [ ] `.agent-workflow/docs/run_log.md` appended with factual work and results for this issue
-- [ ] If this issue ran experiments, evaluations, or smoke tests, `results/issue<meta.issue_id>/SUMMARY.md` exists and is complete
+- [ ] If this issue actually executed result-producing experiments, evaluations, benchmarks, or exploratory smoke tests, `results/issue<meta.issue_id>/SUMMARY.md` exists, covers every run, and contains experiment analysis rather than process recap
 - [ ] `.agent-workflow/docs/plan/archive/<meta.issue_id>.md` created
 - [ ] `.agent-workflow/issue_test/<meta.issue_id>.sh` still present in `.agent-workflow/issue_test/`
 - [ ] `.agent-workflow/docs/plan/current.md` cleared

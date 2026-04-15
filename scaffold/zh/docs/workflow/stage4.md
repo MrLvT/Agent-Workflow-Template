@@ -49,14 +49,17 @@ git commit   # message 格式见 .agent-workflow/docs/conventions.md
 - 完成了哪个 issue / 修复
 - 做了哪些关键动作（代码、测试、交付）
 - 实际结果（测试通过、生成了本地 commit、本地交付摘要）
+- 这里记录的是 run / stage 过程事实；不要把这类流程描述写进 `results/.../SUMMARY.md`
 
 ### Step 5.8：核对实验结果目录（如有）
 
-如果当前 issue 运行过实验、评测或 smoke test：
+如果当前 issue **实际执行过结果型实验、评测、benchmark 或探索性 smoke test**：
 
 - 确认结果目录为 `results/issue<meta.issue_id>/`
 - 确认 `results/issue<meta.issue_id>/SUMMARY.md` 已存在
-- 确认总结已覆盖每次实验，且包含设定、模型/工作流、input length、结果与尝试分析
+- 确认总结已覆盖每次实际运行，且失败/不确定结果也已记录
+- 确认总结包含设定、模型/工作流、input length、结果与尝试分析
+- 确认 `SUMMARY.md` 聚焦实验结果与分析，而不是 Stage / process 叙事
 
 ### Step 6：归档 current.md
 
@@ -71,7 +74,7 @@ cp .agent-workflow/docs/plan/current.md .agent-workflow/docs/plan/archive/<meta.
   - 当前分支名（若存在独立 issue 分支）
   - 验证结论
   - 若需要人类继续推进：人工下一步
-- 若当前 issue 运行过实验、评测或 smoke test：写明结果目录 `results/issue<meta.issue_id>/` 与 `SUMMARY.md` 路径
+- 若当前 issue 实际执行过结果型实验、评测、benchmark 或探索性 smoke test：写明结果目录 `results/issue<meta.issue_id>/` 与 `SUMMARY.md` 路径
 - 不要移动或删除 `.agent-workflow/issue_test/<meta.issue_id>.sh`；它必须留在 `.agent-workflow/issue_test/` 里参与后续回归
 
 ### Step 7：清理
@@ -93,7 +96,7 @@ cp .agent-workflow/docs/plan/current.md .agent-workflow/docs/plan/archive/<meta.
 2. 当前 issue 对应的测试脚本路径与覆盖目标
 3. 可逐步勾选的执行步骤
 4. 对应的验证记录（至少包含历史回归基线和完整回归结果）
-5. 若包含实验、评测或 smoke test：结果目录 `results/issue<issue_id>/` 与总结文件 `results/issue<issue_id>/SUMMARY.md`
+5. 若计划执行结果型实验、评测、benchmark 或探索性 smoke test：结果目录 `results/issue<issue_id>/` 与总结文件 `results/issue<issue_id>/SUMMARY.md`；若最终未实际执行，不需要创建占位目录
 
 ## 维护说明
 
@@ -120,7 +123,7 @@ previous: stage4
 - [ ] 归档中已记录本地交付摘要（commit hash、验证结论，必要时附人工下一步）
 - [ ] `.agent-workflow/docs/progress.md` 已更新
 - [ ] `.agent-workflow/docs/run_log.md` 已追加本 issue 的执行事实与结果
-- [ ] 若本 issue 运行了实验、评测或 smoke test，`results/issue<meta.issue_id>/SUMMARY.md` 已存在且内容完整
+- [ ] 若本 issue 实际执行了结果型实验、评测、benchmark 或探索性 smoke test，`results/issue<meta.issue_id>/SUMMARY.md` 已存在、覆盖每次运行，且内容是实验分析而不是流程复盘
 - [ ] `.agent-workflow/docs/plan/archive/<meta.issue_id>.md` 已创建
 - [ ] `.agent-workflow/issue_test/<meta.issue_id>.sh` 仍保留在 `.agent-workflow/issue_test/` 中
 - [ ] `.agent-workflow/docs/plan/current.md` 已清空

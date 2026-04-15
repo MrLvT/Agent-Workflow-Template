@@ -2,7 +2,7 @@
 
 已完成 issue 的 plan 存档。纯历史记录。
 
-`run_log.md` 负责记录整次 run 的目标、执行与结果；本目录只保留单个 issue 的归档与反思。
+`run_log.md` 负责记录整次 run 的目标、执行与结果；`results/.../SUMMARY.md` 负责记录实验设定、结果与分析；本目录只保留单个 issue 的归档与反思。
 
 ## 命名规范
 
@@ -17,7 +17,7 @@
    - 当前分支名（若存在）
    - 验证结论
    - 若需要人类继续推进：补充人工下一步
-   - 若当前 issue 运行过实验、评测或 smoke test：补充结果目录 `results/issue<issue_id>/` 与 `SUMMARY.md` 路径
+   - 若当前 issue **实际执行过结果型实验、评测、benchmark 或探索性 smoke test**：补充结果目录 `results/issue<issue_id>/` 与 `SUMMARY.md` 路径
    - 最终结论
    - 对应测试脚本路径（`.agent-workflow/issue_test/<issue_id>.sh`）
 3. 清空并重置 `.agent-workflow/docs/plan/current.md`。

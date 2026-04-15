@@ -66,8 +66,8 @@
 - 明确记录两次验证命令：
   - 实现前历史回归：`bash .agent-workflow/scripts/run_issue_tests.sh --exclude .agent-workflow/issue_test/<issue_id>.sh`
   - 实现后完整回归：`bash .agent-workflow/scripts/run_issue_tests.sh`
-- 若当前任务包含实验、评测或 smoke test，预先记录结果目录：`results/issue<issue_id>/`
-- 若当前任务包含实验、评测或 smoke test，预先记录总结文件：`results/issue<issue_id>/SUMMARY.md`
+- 若当前任务计划执行结果型实验、评测、benchmark 或探索性 smoke test，预先记录结果目录：`results/issue<issue_id>/`
+- 若当前任务计划执行结果型实验、评测、benchmark 或探索性 smoke test，预先记录总结文件：`results/issue<issue_id>/SUMMARY.md`
 
 ### Step 6：记录技术决策（如有）
 
@@ -101,7 +101,7 @@ meta:
 - [ ] `.agent-workflow/issue_test/<issue_id>.sh` 已创建，覆盖当前 issue 的目标行为，且失败时会输出诊断信息
 - [ ] `.agent-workflow/docs/plan/current.md` 非空，有可勾选步骤
 - [ ] `.agent-workflow/docs/plan/current.md` 已记录当前 issue 测试脚本路径和两次验证命令
-- [ ] 若当前 issue 包含实验、评测或 smoke test，`.agent-workflow/docs/plan/current.md` 已记录 `results/issue<issue_id>/` 与 `SUMMARY.md`
+- [ ] 若当前 issue 计划执行结果型实验、评测、benchmark 或探索性 smoke test，`.agent-workflow/docs/plan/current.md` 已记录 `results/issue<issue_id>/` 与 `SUMMARY.md`
 - [ ] `.agent-workflow/docs/run_log.md` 已写清当前 run 的目标与计划动作
 - [ ] `stage.lock.meta.issue_id` 已写入
 - [ ] `stage.lock` 已更新（current: stage3）

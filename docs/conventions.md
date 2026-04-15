@@ -46,9 +46,10 @@
 
 ## 实验结果约定
 
-- 若当前 issue 运行了实验、评测或 smoke test，结果目录固定为：`results/issue<issue_id>/`
+- 只有当前 issue **实际执行了会产出结果的实验、评测、benchmark 或探索性 smoke test**，才需要维护结果目录：`results/issue<issue_id>/`
 - 目录示例：`results/issue1-smoke-test/`
-- 该目录下必须维护：`results/issue<issue_id>/SUMMARY.md`
+- 若只是计划过实验、但最终没有实际执行，不要为了满足流程创建占位目录或空 `SUMMARY.md`
+- 一旦实际执行过此类运行，无论结果成功、失败还是结论不确定，都必须维护：`results/issue<issue_id>/SUMMARY.md`
 - 每次实验后都要在 `SUMMARY.md` 追加一节，至少包含：
   - 实验名称 / 时间
   - 目的或假设
@@ -59,6 +60,8 @@
   - 原始日志 / 产物路径
   - 主要结果与指标
   - 对结果的尝试分析（包括失败或不确定结论）
+- `SUMMARY.md` 只记录实验事实、结果与分析；禁止把 Stage 流程、分支切换、提交过程或一般开发过程写成实验总结
+- run / stage 级过程记录写入 `docs/run_log.md`；单 issue 的交付与反思写入 archive / `REFLECT-<issue_id>.md`
 - 同一 issue 的多次实验可以写入同一个 `SUMMARY.md`，原始日志、图表、JSON、CSV 等产物放在同目录或其子目录中
 
 ## 维护规则

@@ -54,10 +54,11 @@ bash .agent-workflow/scripts/run_issue_tests.sh
 
 ### Step 4.5：记录实验结果（如有）
 
-如果本阶段运行了实验、评测或 smoke test：
+如果本阶段**实际执行了会产出结果的实验、评测、benchmark 或探索性 smoke test**：
 
 - 结果目录固定为 `results/issue<meta.issue_id>/`
-- 每次实验后，必须在 `results/issue<meta.issue_id>/SUMMARY.md` 追加一节总结
+- 每次实际运行后，必须在 `results/issue<meta.issue_id>/SUMMARY.md` 追加一节总结
+- 即使结果失败、结论不确定，或只是排除了一个假设，也必须写入
 - 每条总结至少包含：
   - 实验名称 / 时间
   - 实验目的或假设
@@ -68,6 +69,7 @@ bash .agent-workflow/scripts/run_issue_tests.sh
   - 原始日志 / 产物路径
   - 主要结果与指标
   - 对结果的尝试分析（即使结果失败或暂时无法解释，也要写清）
+- `SUMMARY.md` 只记录实验事实、结果与分析，不得写 Stage 流程复盘、分支切换、提交过程或一般开发过程；这些内容写入 `.agent-workflow/docs/run_log.md`
 
 ### Step 5：更新 stage.lock
 
@@ -84,7 +86,7 @@ previous: stage3
 - [ ] `.agent-workflow/issue_test/<meta.issue_id>.sh` 已在实现前执行过，结果与 issue 目标一致，且失败时输出了足够诊断信息
 - [ ] 架构边界有变化时，`.agent-workflow/docs/architecture.md` 已更新并追加 decisions.md
 - [ ] 环境事实有变化时，`.agent-workflow/docs/environment.md` 已更新；若影响默认执行方式，已追加 decisions.md
-- [ ] 若本 issue 运行了实验、评测或 smoke test，`results/issue<meta.issue_id>/SUMMARY.md` 已补齐每次实验的总结
+- [ ] 若本 issue 实际执行了结果型实验、评测、benchmark 或探索性 smoke test，`results/issue<meta.issue_id>/SUMMARY.md` 已补齐每次运行的总结，且失败/不确定结果也已记录
 - [ ] `bash .agent-workflow/scripts/run_issue_tests.sh` 输出 `ISSUE TESTS: PASS`
 - [ ] `stage.lock` 已更新（current: stage4）
 - [ ] `stage.lock` 已更新；若团队跟踪 `.agent-workflow/`，再按团队约定单独提交状态文件

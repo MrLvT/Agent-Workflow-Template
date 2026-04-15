@@ -83,7 +83,7 @@ python .agent-workflow/scripts/build_context.py --stage <current>
 9. 连续运行多个 issue 时，默认由 `scripts/start_agent.sh` 负责在 issue 之间重启一个全新的 Codex session；同一个 session 里最多只完整闭环一个新 issue，避免上下文持续膨胀。
 10. 遇到无法自行解决的问题，写入 `.agent-workflow/docs/blockers.md` 后停止，不得绕过阻塞继续执行。
 11. Stage 4 负责形成可复现的本地交付状态并完成归档；Stage 6 负责文档与状态收口。workflow 到本地交付与状态收口即结束；若团队还有额外发布或同步动作，由人类在 workflow 之外自行处理。
-12. `.agent-workflow/docs/run_log.md` 必须持续维护：Stage 2 写清目标，Stage 4/6 补具体执行与结果，run 停止时补齐结束时间与最终状态。
+12. `.agent-workflow/docs/run_log.md` 必须持续维护：Stage 2 写清目标，Stage 4/6 补具体执行与结果，run 停止时补齐结束时间与最终状态。run_log 用于 run / stage 级过程记录，不得拿 `results/.../SUMMARY.md` 代替。
 13. 若后续 run 发现新的环境事实（如 Slurm、conda、CUDA、登录节点限制、必须通过调度器执行等），必须立即更新 `.agent-workflow/docs/environment.md`，不要只停留在聊天上下文。
-14. 任何实验、评测或 smoke test 运行后，必须把结果存入 `results/issue<issue_id>/`，并在 `results/issue<issue_id>/SUMMARY.md` 追加总结，至少记录实验设定、模型/工作流、input length、结果与尝试分析。
+14. 只有在 issue **实际执行了会产出结果的实验、评测、benchmark 或探索性 smoke test** 时，才必须维护 `results/issue<issue_id>/` 与 `results/issue<issue_id>/SUMMARY.md`。一旦执行过，无论成功、失败还是结论不确定，都必须逐次记录实验设定、模型/工作流、input length、结果与尝试分析。`SUMMARY.md` 只允许写实验结果与分析，不得写 Stage / process 复盘。
 15. 当上一个 issue 已闭环、`stage.lock` 回到 `stage1/done/previous=stage6` 且工作区干净时，仍停留在上一个 issue 分支不算 blocker；Stage 2 可以从当前 HEAD 直接派生下一个 issue 分支。只有无关分支或脏工作区才视为分支阻塞。

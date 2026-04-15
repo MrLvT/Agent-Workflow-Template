@@ -19,9 +19,11 @@
 
 ### Experiment Evidence
 
-- [ ] If this issue ran experiments, evaluations, or smoke tests, outputs were stored under `results/issue<issue_id>/`
-- [ ] `results/issue<issue_id>/SUMMARY.md` exists and contains one summary entry per experiment
+- [ ] `results/issue<issue_id>/` is required only when this issue actually executed result-producing experiments, evaluations, benchmarks, or exploratory smoke tests
+- [ ] If such runs actually occurred, `results/issue<issue_id>/SUMMARY.md` exists and contains one entry per run
 - [ ] Each experiment summary includes at least the setup, model/workflow, input length, key input conditions, command/environment, result metrics, raw artifact paths, and attempted analysis
+- [ ] Failed or inconclusive runs are recorded too; do not keep only the "good-looking" results
+- [ ] `SUMMARY.md` stays focused on experiment outcome and analysis, not Stage/process recap or general implementation narrative
 
 ### Documentation Sync
 
@@ -73,4 +75,4 @@ bash .agent-workflow/scripts/run_issue_tests.sh --exclude .agent-workflow/issue_
 1. New quality gates must be written here before being added to CI.
 2. This document is the mandatory pre-commit self-review checklist and must not be weakened.
 3. Every issue must add or bind to a reproducible `.agent-workflow/issue_test/<issue_id>.sh`.
-4. Any issue containing experiments or evaluations must maintain `results/issue<issue_id>/SUMMARY.md`.
+4. Only issues that actually execute result-producing experiments, evaluations, benchmarks, or exploratory smoke tests must maintain `results/issue<issue_id>/SUMMARY.md`; once executed, successful, failed, and inconclusive runs must all be recorded.
