@@ -59,6 +59,7 @@ If this stage **actually executed result-producing experiments, evaluations, ben
 - The canonical result directory is `results/issue<meta.issue_id>/`
 - After each executed run, append one summary section to `results/issue<meta.issue_id>/SUMMARY.md`
 - Failed or inconclusive runs, and runs that mainly ruled out a hypothesis, must be recorded too
+- After appending the per-run entry, update the issue-level synthesis in the same file so it explains how this run changes the overall judgment for the issue's experimental question
 - Each summary must include at least:
   - Experiment name / time
   - Goal or hypothesis
@@ -87,6 +88,7 @@ previous: stage3
 - [ ] When architecture boundaries changed, `.agent-workflow/docs/architecture.md` was updated and decisions.md was appended
 - [ ] When environment facts changed, `.agent-workflow/docs/environment.md` was updated; if default execution changed, decisions.md was appended
 - [ ] If this issue actually executed result-producing experiments, evaluations, benchmarks, or exploratory smoke tests, `results/issue<meta.issue_id>/SUMMARY.md` contains a summary entry for each run, including failed and inconclusive ones
+- [ ] If this issue actually executed result-producing experiments, evaluations, benchmarks, or exploratory smoke tests, `results/issue<meta.issue_id>/SUMMARY.md` also updates the issue-level synthesis instead of only stacking per-run entries
 - [ ] `bash .agent-workflow/scripts/run_issue_tests.sh` outputs `ISSUE TESTS: PASS`
 - [ ] `stage.lock` updated (current: stage4)
 - [ ] `stage.lock` updated; only create a separate status commit if the team explicitly tracks `.agent-workflow/`

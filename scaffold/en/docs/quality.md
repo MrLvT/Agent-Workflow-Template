@@ -24,6 +24,7 @@
 - [ ] Each experiment summary includes at least the setup, model/workflow, input length, key input conditions, command/environment, result metrics, raw artifact paths, and attempted analysis
 - [ ] Failed or inconclusive runs are recorded too; do not keep only the "good-looking" results
 - [ ] `SUMMARY.md` stays focused on experiment outcome and analysis, not Stage/process recap or general implementation narrative
+- [ ] `SUMMARY.md` maintains an issue-level synthesis that explains what the accumulated experiment evidence says about the issue's core question
 
 ### Documentation Sync
 

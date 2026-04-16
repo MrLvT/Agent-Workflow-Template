@@ -62,6 +62,8 @@
   - 对结果的尝试分析（包括失败或不确定结论）
 - `SUMMARY.md` 只记录实验事实、结果与分析；禁止把 Stage 流程、分支切换、提交过程或一般开发过程写成实验总结
 - run / stage 级过程记录写入 `.agent-workflow/docs/run_log.md`；单 issue 的交付与反思写入 archive / `REFLECT-<issue_id>.md`
+- `SUMMARY.md` 除了逐次运行记录外，还必须维护一个“当前 issue 级结论 / synthesis”区域：基于所有已执行实验，说明当前 issue 的核心假设得到了什么支持或反证、还剩哪些不确定性、下一步最有价值的实验是什么
+- issue 级结论必须围绕“这个 issue 想回答什么实验问题”展开，不能退化成“本阶段修了什么、覆盖了什么、哪个 blocker 清了”这类 workflow 过程描述
 - 同一 issue 的多次实验可以写入同一个 `SUMMARY.md`，原始日志、图表、JSON、CSV 等产物放在同目录或其子目录中
 
 ## 维护规则

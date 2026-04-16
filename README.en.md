@@ -143,7 +143,7 @@ The role of each:
 
 In short: `backlog.md` is the development entry point, `current.md` is the in-progress plan, and `issue_test` is the acceptance script.
 
-Only issues that **actually execute result-producing experiments, evaluations, benchmarks, or exploratory smoke tests** need `results/issue<issue_id>/`. Once such runs occur, successful, failed, and inconclusive runs must all be appended to `results/issue<issue_id>/SUMMARY.md` with the model, workflow, input length, key settings, result, and attempted analysis. `run_log.md` is for process narration; `SUMMARY.md` is only for experiment outcome and analysis.
+Only issues that **actually execute result-producing experiments, evaluations, benchmarks, or exploratory smoke tests** need `results/issue<issue_id>/`. Once such runs occur, successful, failed, and inconclusive runs must all be appended to `results/issue<issue_id>/SUMMARY.md` with the model, workflow, input length, key settings, result, and attempted analysis. `run_log.md` is for process narration; `SUMMARY.md` is only for experiment outcome and analysis, and it must maintain an issue-level conclusion explaining what the accumulated evidence says overall.
 
 ### 3. What Does `init.sh` Actually Do?
 

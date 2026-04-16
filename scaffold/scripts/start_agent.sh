@@ -6,6 +6,7 @@ REPO_DIR="$(cd "${WORKFLOW_DIR}/.." && pwd)"
 MAX_RUNS="${CODEX_MAX_RUNS:-20}"
 RUN_COUNT=0
 VERBOSE="${CODEX_LAUNCHER_VERBOSE:-0}"
+RESTART_GRACE_SECONDS="${CODEX_RESTART_GRACE_SECONDS:-2}"
 STOP_REQUESTED=0
 
 usage() {
@@ -19,6 +20,7 @@ usage() {
   - 若 Stage 6 回到 stage1/done 后仍有 backlog/current 待处理任务，
     启动器会先结束当前 session，再拉起一个全新的 Codex session
   - 默认尽量保持 Codex 原始交互界面；若需要壳层状态日志，可设 `CODEX_LAUNCHER_VERBOSE=1`
+  - 自动重启前会有一个很短的缓冲窗口；若想连启动器一起停掉，请在该窗口内按 `Ctrl+C`
 EOF
 }
 
@@ -30,6 +32,17 @@ note() {
 
 request_stop() {
     STOP_REQUESTED=1
+}
+
+restart_grace_window() {
+    local seconds="$1"
+
+    if [[ "$seconds" -le 0 ]]; then
+        return
+    fi
+
+    echo "[start_agent] 当前 session 已结束；若要停止自动重启，请在 ${seconds}s 内按 Ctrl+C。" >&2
+    sleep "$seconds" || true
 }
 
 read_lock_field() {
@@ -149,6 +162,11 @@ done
     exit 1
 }
 
+[[ "$RESTART_GRACE_SECONDS" =~ ^[0-9]+$ ]] || {
+    echo "ERROR: CODEX_RESTART_GRACE_SECONDS 必须是非负整数。" >&2
+    exit 1
+}
+
 trap 'request_stop' INT TERM
 
 cd "$REPO_DIR"
@@ -188,6 +206,11 @@ while true; do
 
     case "$(should_restart_fresh)" in
         restart)
+            restart_grace_window "$RESTART_GRACE_SECONDS"
+            if [[ "$STOP_REQUESTED" == "1" ]]; then
+                echo "[start_agent] 已按用户请求取消自动重启。" >&2
+                exit 130
+            fi
             note "已完成一个 issue；检测到仍有待处理任务，准备以全新上下文继续下一轮。"
             ;;
         complete)

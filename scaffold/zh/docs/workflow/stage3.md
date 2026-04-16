@@ -59,6 +59,7 @@ bash .agent-workflow/scripts/run_issue_tests.sh
 - 结果目录固定为 `results/issue<meta.issue_id>/`
 - 每次实际运行后，必须在 `results/issue<meta.issue_id>/SUMMARY.md` 追加一节总结
 - 即使结果失败、结论不确定，或只是排除了一个假设，也必须写入
+- 追加单次运行记录后，还要更新同文件中的 issue 级结论 / synthesis，说明这次结果如何改变了对当前 issue 实验问题的整体判断
 - 每条总结至少包含：
   - 实验名称 / 时间
   - 实验目的或假设
@@ -87,6 +88,7 @@ previous: stage3
 - [ ] 架构边界有变化时，`.agent-workflow/docs/architecture.md` 已更新并追加 decisions.md
 - [ ] 环境事实有变化时，`.agent-workflow/docs/environment.md` 已更新；若影响默认执行方式，已追加 decisions.md
 - [ ] 若本 issue 实际执行了结果型实验、评测、benchmark 或探索性 smoke test，`results/issue<meta.issue_id>/SUMMARY.md` 已补齐每次运行的总结，且失败/不确定结果也已记录
+- [ ] 若本 issue 实际执行了结果型实验、评测、benchmark 或探索性 smoke test，`results/issue<meta.issue_id>/SUMMARY.md` 已更新 issue 级结论 / synthesis，而不是只堆叠单次运行记录
 - [ ] `bash .agent-workflow/scripts/run_issue_tests.sh` 输出 `ISSUE TESTS: PASS`
 - [ ] `stage.lock` 已更新（current: stage4）
 - [ ] `stage.lock` 已更新；若团队跟踪 `.agent-workflow/`，再按团队约定单独提交状态文件

@@ -60,6 +60,7 @@ If the current issue actually executed result-producing experiments, evaluations
 - Confirm the summary covers every executed run, including failed or inconclusive ones
 - Confirm the summary includes setup, model/workflow, input length, result, and attempted analysis
 - Confirm `SUMMARY.md` stays focused on experiment result analysis rather than Stage/process narration
+- Confirm `SUMMARY.md` maintains an issue-level synthesis that answers the issue's experimental question across all executed runs
 
 ### Step 6: Archive current.md
 
@@ -124,6 +125,7 @@ previous: stage4
 - [ ] `.agent-workflow/docs/progress.md` updated
 - [ ] `.agent-workflow/docs/run_log.md` appended with factual work and results for this issue
 - [ ] If this issue actually executed result-producing experiments, evaluations, benchmarks, or exploratory smoke tests, `results/issue<meta.issue_id>/SUMMARY.md` exists, covers every run, and contains experiment analysis rather than process recap
+- [ ] If this issue actually executed result-producing experiments, evaluations, benchmarks, or exploratory smoke tests, `results/issue<meta.issue_id>/SUMMARY.md` also gives an issue-level synthesis instead of reading like phase-by-phase or run-by-run bookkeeping only
 - [ ] `.agent-workflow/docs/plan/archive/<meta.issue_id>.md` created
 - [ ] `.agent-workflow/issue_test/<meta.issue_id>.sh` still present in `.agent-workflow/issue_test/`
 - [ ] `.agent-workflow/docs/plan/current.md` cleared

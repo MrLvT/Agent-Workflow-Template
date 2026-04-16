@@ -6,6 +6,7 @@ WORKFLOW_DIR="${ROOT_DIR}/.agent-workflow"
 MAX_RUNS="${CODEX_MAX_RUNS:-20}"
 RUN_COUNT=0
 VERBOSE="${CODEX_LAUNCHER_VERBOSE:-0}"
+RESTART_GRACE_SECONDS="${CODEX_RESTART_GRACE_SECONDS:-2}"
 STOP_REQUESTED=0
 
 usage() {
@@ -16,6 +17,8 @@ Usage:
 This helper supervises repeated fresh Codex sessions for an initialized
 repository that already contains `.agent-workflow/`.
 Set `CODEX_LAUNCHER_VERBOSE=1` or pass `--verbose` if you want launcher logs.
+Before auto-restarting into the next issue, it waits a short grace window;
+press Ctrl+C during that window if you want the launcher itself to stop.
 EOF
 }
 
@@ -27,6 +30,17 @@ note() {
 
 request_stop() {
     STOP_REQUESTED=1
+}
+
+restart_grace_window() {
+    local seconds="$1"
+
+    if [[ "$seconds" -le 0 ]]; then
+        return
+    fi
+
+    echo "[start_agent] Session ended. Press Ctrl+C within ${seconds}s to stop auto-restart." >&2
+    sleep "$seconds" || true
 }
 
 read_lock_field() {
@@ -152,6 +166,11 @@ done
     exit 1
 }
 
+[[ "$RESTART_GRACE_SECONDS" =~ ^[0-9]+$ ]] || {
+    echo "ERROR: CODEX_RESTART_GRACE_SECONDS must be a non-negative integer." >&2
+    exit 1
+}
+
 trap 'request_stop' INT TERM
 
 cd "$ROOT_DIR"
@@ -191,6 +210,11 @@ while true; do
 
     case "$(should_restart_fresh)" in
         restart)
+            restart_grace_window "$RESTART_GRACE_SECONDS"
+            if [[ "$STOP_REQUESTED" == "1" ]]; then
+                echo "[start_agent] Auto-restart cancelled by user." >&2
+                exit 130
+            fi
             note "One issue loop finished; pending work remains, so a fresh session will start next."
             ;;
         complete)

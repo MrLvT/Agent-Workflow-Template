@@ -60,6 +60,7 @@ git commit   # message 格式见 .agent-workflow/docs/conventions.md
 - 确认总结已覆盖每次实际运行，且失败/不确定结果也已记录
 - 确认总结包含设定、模型/工作流、input length、结果与尝试分析
 - 确认 `SUMMARY.md` 聚焦实验结果与分析，而不是 Stage / process 叙事
+- 确认 `SUMMARY.md` 已维护 issue 级结论 / synthesis，基于全部已执行实验回答当前 issue 的实验问题
 
 ### Step 6：归档 current.md
 
@@ -124,6 +125,7 @@ previous: stage4
 - [ ] `.agent-workflow/docs/progress.md` 已更新
 - [ ] `.agent-workflow/docs/run_log.md` 已追加本 issue 的执行事实与结果
 - [ ] 若本 issue 实际执行了结果型实验、评测、benchmark 或探索性 smoke test，`results/issue<meta.issue_id>/SUMMARY.md` 已存在、覆盖每次运行，且内容是实验分析而不是流程复盘
+- [ ] 若本 issue 实际执行了结果型实验、评测、benchmark 或探索性 smoke test，`results/issue<meta.issue_id>/SUMMARY.md` 已给出 issue 级结论 / synthesis，而不是只按 phase 或单次运行流水账罗列
 - [ ] `.agent-workflow/docs/plan/archive/<meta.issue_id>.md` 已创建
 - [ ] `.agent-workflow/issue_test/<meta.issue_id>.sh` 仍保留在 `.agent-workflow/issue_test/` 中
 - [ ] `.agent-workflow/docs/plan/current.md` 已清空

@@ -62,6 +62,8 @@
   - Attempted analysis of the result, including failed or inconclusive outcomes
 - `SUMMARY.md` is only for experiment facts, outcomes, and analysis; do not turn it into a Stage/process diary, branch history, or generic implementation recap
 - Run- or Stage-level process narration belongs in `.agent-workflow/docs/run_log.md`; per-issue delivery/reflection belongs in the archive or `REFLECT-<issue_id>.md`
+- Besides per-run entries, `SUMMARY.md` must maintain a "current issue synthesis" section that aggregates all executed experiments and states what they imply about the issue's core hypothesis, what uncertainty remains, and what the next highest-value experiment should be
+- The synthesis must answer the issue's experimental question, not drift into workflow narration such as which phase changed, what got covered, or which blocker was cleared
 - Multiple experiments from the same issue may share one `SUMMARY.md`; raw logs, plots, JSON, CSV, and other artifacts should live in the same directory or its subdirectories
 
 ## Maintenance Rules
